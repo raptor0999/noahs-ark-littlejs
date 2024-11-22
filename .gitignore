@@ -1,0 +1,6 @@
+# node files
+node_modules
+
+# example builds
+/build
+*.zip
