@@ -233,15 +233,17 @@ function newGame() {
     waveStarted = false;
     gameStarted = false;
     waveNumber = 0;
+    waveTimeDefault = 5.0;
+    enemySpawnTimeDefault = 2.0;
 }
 
 function resetAnimals() {
     for (let i=0;i<enemies.length;i++) {
-            enemies[i].destroy();
-        }
+        enemies[i].destroy();
+    }
     for (let i=0;i<friendlies.length;i++) {
-            friendlies[i].destroy();
-        }
+        friendlies[i].destroy();
+    }
 
     enemies = [];
     friendlies = [];
@@ -263,6 +265,12 @@ function gameRender()
     drawRect(cameraPos, levelSize, rgb(0.38823529411764707,0.8196078431372549,0.06666666666666667,1)); // grass
     if (gameStarted) {
         drawRect(cameraPos, vec2(levelSize.x-4, 2), rgb(0.69, 0.639, 0.451, 1));
+    }
+}
+
+function drawEnemyHealth() {
+    for (let i=0;i<enemies.length;i++) {
+        drawText(enemies[i].health, enemies[i].pos.add(vec2(0, 1)), 1);
     }
 }
 
@@ -293,6 +301,9 @@ function gameRenderPost()
             }
             if(enemySpawnTimer) {
                 drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+300, mainCanvasSize.y-20), 20);
+            }
+            if(enemies.length > 0) {
+                drawEnemyHealth();
             }
         }
     }
