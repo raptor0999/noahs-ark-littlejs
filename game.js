@@ -296,16 +296,26 @@ function gameUpdate()
 
         if(enemySpawnTimer.elapsed()) {
             // spawn enemyAnimal
-            enemies.push(new EnemyAnimal(vec2(7, 20)));
+            // pick a random spot outside of map bounds
+            var spawnLocation;
+
+            if(randInt(2)) {
+                // we will pick a random x coord and spawn above or below map bounds
+                spawnLocation = vec2(randInt(-1, levelSize.x+1), 1*randSign());
+            } else {
+                // we will pick a random x coord and spawn above or below map bounds
+                spawnLocation = vec2(1*randSign(), randInt(-1, levelSize.y+1));
+            }
+            enemies.push(new EnemyAnimal(spawnLocation));
+        }
+
+        if(mouseWasPressed(0)) {
+            noah.target = mousePos;
         }
 
         let friendlyMod = 0;
         if (waveNumber <= friendlyModifierByWave.length) {
             friendlyMod = friendlyModifierByWave[waveNumber-1];
-        }
-
-        if(mouseWasPressed(0)) {
-            noah.target = mousePos;
         }
 
         if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
@@ -443,10 +453,15 @@ function gameRenderPost()
 
         // draw spawn range
         if(noah.showSpawnRange) {
-            // indicator green if in range and red if out of
+            // indicator green if in range and ready to spawn animal and red if out of
             var spawnRangeColor = rgb(1,0,0,0.8);
 
-            if(mousePos.distance(noah.pos) <= noah.spawnRange) {
+            let friendlyMod = 0;
+            if (waveNumber <= friendlyModifierByWave.length) {
+                friendlyMod = friendlyModifierByWave[waveNumber-1];
+            }
+
+            if(mousePos.distance(noah.pos) <= noah.spawnRange && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
                 spawnRangeColor = rgb(0,1,0,0.8)
             } 
 
