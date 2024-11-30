@@ -89,7 +89,7 @@ class Noah extends EngineObject {
 
         if(this.health < 1) {
             //snd_ark_destroy.play()
-            ark = 0;
+            noah = 0;
             this.destroy();
         } else {
             //snd_ark_hit.play();
@@ -136,6 +136,8 @@ class EnemyAnimal extends Animal {
     constructor(pos) {
         super(pos, vec2(1,1));
 
+        this.id = randInt(32000);
+
         this.setCollision();
 
         this.attackTimer = new Timer(0);
@@ -166,6 +168,7 @@ class EnemyAnimal extends Animal {
         if(o instanceof Ark) {
             o.takeDamage(this.damage);
 
+            removeEnemy(this);
             this.destroy();
         }
 
@@ -175,18 +178,34 @@ class EnemyAnimal extends Animal {
         }
     }
 
-    takeDamage(dmg, i) {
+    takeDamage(dmg) {
         console.log("Health was " + this.health);
         this.health -= dmg;
         console.log("Health is " + this.health);
 
         if(this.health < 1) {
-            snd_enemy_die.play()
+            snd_enemy_die.play();
 
+            removeEnemy(this);
             this.destroy();
-            enemies.splice(i, 1);
         } else {
             snd_enemy_hit.play();
+        }
+    }
+}
+
+function findEnemyById(id) {
+    for (let i=0;i<enemies.length;i++) {
+        if(enemies[i].id == id) {
+            return enemies[i];
+        }
+    }
+}
+
+function removeEnemy(enemy) {
+    for (let i=0;i<enemies.length;i++) {
+        if(enemies[i].id == enemy.id) {
+            enemies.splice(i, 1);
         }
     }
 }
@@ -194,6 +213,8 @@ class EnemyAnimal extends Animal {
 class FriendlyAnimal extends Animal {
     constructor(pos) {
         super(pos, vec2(1,1));
+
+        this.id = randInt(32000);
 
         this.setCollision();
 
@@ -220,19 +241,30 @@ class FriendlyAnimal extends Animal {
             }
         }*/
 
-        // find nearest enemy and move toward
-        let curEnemyDistance = 100.0
+        // do sanity check for target
+        if(this.target) {
+            if(this.target.health < 1) {
+                // 0 out target
+                this.target = 0;
+            }
+        }
 
-        for (let i=0;i<enemies.length;i++) {
-            let enemyDistance = this.pos.distance(enemies[i].pos);
+        if(!this.target) {
+            // find nearest enemy and target
+            let curEnemyDistance = 100.0
 
-            if(enemyDistance < curEnemyDistance) {
-                this.target = enemies[i].pos;
+            for (let i=0;i<enemies.length;i++) {
+                let enemyDistance = this.pos.distance(enemies[i].pos);
+
+                if(enemyDistance < curEnemyDistance) {
+                    this.target = enemies[i];
+                    break;
+                }
             }
         }
 
         if(this.target) {
-            this.velocity = this.target.subtract(this.pos).normalize(this.speed);
+            this.velocity = this.target.pos.subtract(this.pos).normalize(this.speed);
         }
 
         // update physics
@@ -247,7 +279,7 @@ class FriendlyAnimal extends Animal {
         }
     }
 
-    takeDamage(dmg, i) {
+    takeDamage(dmg) {
         console.log("Health was " + this.health);
         this.health -= dmg;
         console.log("Health is " + this.health);
@@ -255,10 +287,26 @@ class FriendlyAnimal extends Animal {
         if(this.health < 1) {
             snd_enemy_die.play()
 
+            removeFriendly(this);
             this.destroy();
-            friendlies.splice(i, 1);
         } else {
             snd_enemy_hit.play();
+        }
+    }
+}
+
+function findFriendlyById(id) {
+    for (let i=0;i<friendlies.length;i++) {
+        if(friendlies[i].id == id) {
+            return friendlies[i];
+        }
+    }
+}
+
+function removeFriendly(friendly) {
+    for (let i=0;i<friendlies.length;i++) {
+        if(friendlies[i].id == friendly.id) {
+            friendlies.splice(i, 1);
         }
     }
 }
