@@ -9,7 +9,7 @@
 // show the LittleJS splash screen
 //setShowSplashScreen(true);
 
-let gameStarted, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, ark, friendlies, enemies;
+let gameStarted, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies;
 
 const levelSize = vec2(40, 23);
 let waveTimeDefault = 5.0;
@@ -27,9 +27,79 @@ const snd_enemy_die = new Sound([,,194,.02,.03,.02,3,2.3,-2,30,,,,,,,,.56,.02,.1
 const snd_ark_hit = new Sound([2,,424,.02,.06,.11,,1.7,-4,,,,,1.6,,.5,.11,.83,.03]); // Hit 3
 const snd_ark_destroy = new Sound([2.1,,51,.06,.22,.33,4,3.7,,,,,,1.2,,.5,.35,.3,.23]); // Explosion 4
 
+class Noah extends EngineObject {
+    constructor(pos) {
+        super(pos, vec2(1,1));
+
+        this.setCollision();
+
+        this.health = 10;
+        this.speed = 0.05;
+        this.state = 'idle';
+        this.target = 0;
+        this.damage = 1;
+        this.attackTimer = new Timer(0);
+        this.attackTimerDefault = 0.8;
+        this.spawnRange = 3.0;
+        this.showSpawnRange = true;
+        this.color = rgb(1, 1, 1, 1);
+    }
+
+    update() {
+        if(this.state == 'idle') {
+            // do nothing
+        } else if(this.state == 'moving') {
+            // move towards target
+        } else if(this.state == 'attacking') {
+            // attack
+        }
+
+        // find target and move toward
+        if(this.target) {
+            this.dir = this.target.subtract(this.pos).normalize(this.speed);
+            this.velocity = this.dir;
+
+            if(this.target.distance(this.pos) < 0.2) {
+                this.target = 0;
+                this.velocity = vec2(0,0);
+            }
+        }
+
+        super.update();
+    }
+
+    collideWithObject(o) {
+        if(this.attackTimer.elapsed() && o instanceof EnemyAnimal) {
+            // attack enemy
+            o.takeDamage(this.damage);
+            this.attackTimer = new Timer(this.attackTimerDefault);
+        }
+
+        /*if(o instanceof Ark) {
+            this.pos.subtract(this.dir);
+            this.target = 0;
+            this.velocity = vec2(0,0);
+        }*/
+    }
+
+    takeDamage(dmg) {
+        console.log("Health was " + this.health);
+        this.health -= dmg;
+        console.log("Health is " + this.health);
+
+        if(this.health < 1) {
+            //snd_ark_destroy.play()
+            ark = 0;
+            this.destroy();
+        } else {
+            //snd_ark_hit.play();
+        }
+    }
+}
+
 class Ark extends EngineObject {
     constructor(pos) {
-        super(pos, vec2(4,5));
+        super(pos, vec2(2,2));
 
         this.setCollision();
 
@@ -57,7 +127,7 @@ class Animal extends EngineObject {
         super(pos, vec2(1,1));
 
         this.health = 1;
-        this.speed = 1;
+        this.speed = .04;
         this.damage = 1;
     }
 }
@@ -68,8 +138,10 @@ class EnemyAnimal extends Animal {
 
         this.setCollision();
 
+        this.attackTimer = new Timer(0);
+        this.attackTimerDefault = 1.5;
+
         this.color = rgb(1, 0, 0, 1);
-        this.velocity.x = 0.1;
 
         snd_enemy_spawn.play();
 
@@ -81,11 +153,25 @@ class EnemyAnimal extends Animal {
         }
     }
 
+    update() {
+        // find ark and move toward
+        if(ark) {
+            this.velocity = ark.pos.subtract(this.pos).normalize(this.speed);
+        }
+
+        super.update();
+    }
+
     collideWithObject(o) {
         if(o instanceof Ark) {
             o.takeDamage(this.damage);
 
             this.destroy();
+        }
+
+        if(this.attackTimer.elapsed() && o instanceof FriendlyAnimal) {
+            o.takeDamage(this.damage);
+            this.attackTimer = new Timer(this.attackTimerDefault);
         }
     }
 
@@ -109,9 +195,12 @@ class FriendlyAnimal extends Animal {
     constructor(pos) {
         super(pos, vec2(1,1));
 
+        this.setCollision();
+
         this.attackDistance = 5.0;
         this.attackTimer = new Timer(0);
         this.attackTimerDefault = 1.5;
+        this.target = 0;
         this.color = rgb(1, 1, 1, 1);
 
         friendlySpawnTimer = new Timer(friendlySpawnTimeDefault);
@@ -119,7 +208,7 @@ class FriendlyAnimal extends Animal {
 
     update() {
         // let's not even let animal scan until ready to attack
-        if(this.attackTimer.elapsed()) {
+        /*if(this.attackTimer.elapsed()) {
             for (let i=0;i<enemies.length;i++) {
                 if(this.pos.distance(enemies[i].pos) <= this.attackDistance) {
                     // are we within attack distance?
@@ -129,10 +218,48 @@ class FriendlyAnimal extends Animal {
                     break;
                 }
             }
+        }*/
+
+        // find nearest enemy and move toward
+        let curEnemyDistance = 100.0
+
+        for (let i=0;i<enemies.length;i++) {
+            let enemyDistance = this.pos.distance(enemies[i].pos);
+
+            if(enemyDistance < curEnemyDistance) {
+                this.target = enemies[i].pos;
+            }
+        }
+
+        if(this.target) {
+            this.velocity = this.target.subtract(this.pos).normalize(this.speed);
         }
 
         // update physics
         super.update();
+    }
+
+    collideWithObject(o) {
+        if(this.attackTimer.elapsed() && o instanceof EnemyAnimal) {
+            // attack enemy
+            o.takeDamage(this.damage);
+            this.attackTimer = new Timer(this.attackTimerDefault);
+        }
+    }
+
+    takeDamage(dmg, i) {
+        console.log("Health was " + this.health);
+        this.health -= dmg;
+        console.log("Health is " + this.health);
+
+        if(this.health < 1) {
+            snd_enemy_die.play()
+
+            this.destroy();
+            friendlies.splice(i, 1);
+        } else {
+            snd_enemy_hit.play();
+        }
     }
 }
 
@@ -169,7 +296,7 @@ function gameUpdate()
 
         if(enemySpawnTimer.elapsed()) {
             // spawn enemyAnimal
-            enemies.push(new EnemyAnimal(vec2(1, levelSize.y/2)));
+            enemies.push(new EnemyAnimal(vec2(7, 20)));
         }
 
         let friendlyMod = 0;
@@ -177,13 +304,17 @@ function gameUpdate()
             friendlyMod = friendlyModifierByWave[waveNumber-1];
         }
 
-        if(mouseWasPressed(0) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
-            console.log("Mouse pos: " + mousePos);
-            // spawn friendlyAnimal
-            if((mousePos.y > 13 || mousePos.y < 10) && mousePos.x < 36) {
+        if(mouseWasPressed(0)) {
+            noah.target = mousePos;
+        }
+
+        if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
+            // spawn friendlyAnimal if within spawn range
+            console.log("Distance from Noah: " + mousePos.distance(noah.pos));
+
+            if(mousePos.distance(noah.pos) <= noah.spawnRange) {
                 friendlies.push(new FriendlyAnimal(mousePos));
             }
-            
         }
     }
 
@@ -196,8 +327,11 @@ function gameUpdate()
     if(!gameStarted && !ark && mouseWasPressed(0)) {
         gameStarted = true;
 
-        ark = new Ark(vec2(levelSize.x-2, levelSize.y/2));
+        ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
         console.log("Ark made");
+
+        noah = new Noah(vec2(levelSize.x/2, levelSize.y/2-5));
+        console.log("Noah made");
     
         startLevel();
         console.log("Level started");
@@ -264,7 +398,7 @@ function gameRender()
     drawRect(cameraPos, levelSize.scale(2), rgb(1,1,1,1)); // background
     drawRect(cameraPos, levelSize, rgb(0.38823529411764707,0.8196078431372549,0.06666666666666667,1)); // grass
     if (gameStarted) {
-        drawRect(cameraPos, vec2(levelSize.x-4, 2), rgb(0.69, 0.639, 0.451, 1));
+        //drawRect(cameraPos, vec2(levelSize.x-4, 2), rgb(0.69, 0.639, 0.451, 1)); // road
     }
 }
 
@@ -306,7 +440,21 @@ function gameRenderPost()
                 drawEnemyHealth();
             }
         }
+
+        // draw spawn range
+        if(noah.showSpawnRange) {
+            // indicator green if in range and red if out of
+            var spawnRangeColor = rgb(1,0,0,0.8);
+
+            if(mousePos.distance(noah.pos) <= noah.spawnRange) {
+                spawnRangeColor = rgb(0,1,0,0.8)
+            } 
+
+            drawRect(mousePos, vec2(0.5, 0.5), spawnRangeColor);
+        }
     }
+
+
     
 }
 
