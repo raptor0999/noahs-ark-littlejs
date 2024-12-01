@@ -9,7 +9,7 @@
 // show the LittleJS splash screen
 //setShowSplashScreen(true);
 
-let gameStarted, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies;
+let gameStarted, spriteAtlas, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies, grassLayer;
 
 const levelSize = vec2(40, 23);
 let waveTimeDefault = 5.0;
@@ -43,13 +43,26 @@ class Noah extends EngineObject {
         this.spawnRange = 3.0;
         this.showSpawnRange = true;
         this.color = rgb(1, 1, 1, 1);
+        this.animationFrame = 0;
+        this.frameTime = 0.1;
+        this.frameTimer = new Timer(this.frameTime);
+        this.idleAnimationOffset = 0;
+        this.idleAnimationFrames = 2;
+        this.moveAnimationOffset = 2;
+        this.moveAnimationFrames = 6;
+        this.currentFrame = 0;
+        this.frameOffset = 0;
+        this.maxFrames = 0;
+        this.drawSize = vec2(1,1);
     }
 
     update() {
         if(this.state == 'idle') {
-            // do nothing
+            this.frameOffset = this.idleAnimationOffset;
+            this.maxFrames = this.idleAnimationFrames;
         } else if(this.state == 'moving') {
-            // move towards target
+            this.frameOffset = this.moveAnimationOffset;
+            this.maxFrames = this.moveAnimationFrames;
         } else if(this.state == 'attacking') {
             // attack
         }
@@ -63,6 +76,12 @@ class Noah extends EngineObject {
                 this.target = 0;
                 this.velocity = vec2(0,0);
             }
+        }
+
+        if(this.velocity.length() == 0) {
+            this.state = 'idle';
+        } else {
+            this.state = 'moving';
         }
 
         super.update();
@@ -95,16 +114,46 @@ class Noah extends EngineObject {
             //snd_ark_hit.play();
         }
     }
+
+    render() {
+        // figure out what animation and then draw the frame
+        if(this.frameTimer.elapsed()) {
+            // increment frame
+            if(this.currentFrame < this.maxFrames-1) {
+                this.currentFrame += 1;
+                this.animationFrame = this.currentFrame + this.frameOffset;
+            } else {
+                this.currentFrame = 0;
+                this.animationFrame = this.currentFrame + this.frameOffset;
+            }
+
+            this.frameTimer = new Timer(this.frameTime);
+        }
+
+        this.tileInfo = spriteAtlas.player.frame(this.animationFrame);
+
+        if(this.velocity.x < 0) {
+            this.mirror = true;        
+        } 
+        if(this.velocity.x > 0) {
+            this.mirror = false;
+        }
+
+        // draw shadow
+        drawTile(vec2(this.pos.x, this.pos.y-0.2), vec2(0.8,0.8), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+        // draw character
+        drawTile(this.pos, this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
+        
+    }
 }
 
 class Ark extends EngineObject {
     constructor(pos) {
-        super(pos, vec2(2,2));
+        super(pos, vec2(8,4), spriteAtlas.ark);
 
         this.setCollision();
 
         this.health = 5;
-        this.color = rgb(0.522, 0.467, 0.278, 1);
     }
 
     takeDamage(dmg) {
@@ -120,21 +169,87 @@ class Ark extends EngineObject {
             snd_ark_hit.play();
         }
     }
+
+    render() {
+        // draw shadow
+        drawTile(vec2(this.pos.x, this.pos.y-0.4), vec2(8,4), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+
+        super.render();
+    }
 }
 
 class Animal extends EngineObject {
-    constructor(pos) {
+    constructor(pos, spriteRef) {
         super(pos, vec2(1,1));
 
         this.health = 1;
         this.speed = .04;
         this.damage = 1;
+
+        this.animationFrame = 0;
+        this.drawSize = vec2(1,1);
+        this.spriteReference = spriteRef;
+        this.frameTime = 0.1;
+        this.frameTimer = new Timer(this.frameTime);
+        this.moveAnimationOffset = 0;
+        this.moveAnimationFrames = 4;
+        this.currentFrame = 0;
+        this.frameOffset = 0;
+        this.maxFrames = 0;
+    }
+
+    update() {
+        if(this.state == 'idle') {
+            // idle
+        } else if(this.state == 'moving') {
+            this.frameOffset = this.moveAnimationOffset;
+            this.maxFrames = this.moveAnimationFrames;
+        } else if(this.state == 'attacking') {
+            // attack
+        }
+
+        if(this.velocity.length() == 0) {
+            this.state = 'idle';
+        } else {
+            this.state = 'moving';
+        }
+
+        super.update();
+    }
+
+    render() {
+        // figure out what animation and then draw the frame
+        if(this.frameTimer.elapsed()) {
+            // increment frame
+            if(this.currentFrame < this.maxFrames-1) {
+                this.currentFrame += 1;
+                this.animationFrame = this.currentFrame + this.frameOffset;
+            } else {
+                this.currentFrame = 0;
+                this.animationFrame = this.currentFrame + this.frameOffset;
+            }
+
+            this.frameTimer = new Timer(this.frameTime);
+        }
+
+        this.tileInfo = this.spriteReference.frame(this.animationFrame);
+
+        if(this.velocity.x < 0) {
+            this.mirror = true;        
+        } else {
+            this.mirror = false;
+        }
+
+        // draw shadow
+        drawTile(vec2(this.pos.x, this.pos.y-0.2), this.drawSize, spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+
+        drawTile(this.pos, this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
     }
 }
 
 class EnemyAnimal extends Animal {
-    constructor(pos) {
-        super(pos, vec2(1,1));
+    constructor(pos, spriteRef) {
+        super(pos, spriteRef);
 
         this.id = randInt(32000);
 
@@ -143,7 +258,7 @@ class EnemyAnimal extends Animal {
         this.attackTimer = new Timer(0);
         this.attackTimerDefault = 1.5;
 
-        this.color = rgb(1, 0, 0, 1);
+        this.color = rgb(1, 1, 1, 1);
 
         snd_enemy_spawn.play();
 
@@ -211,8 +326,8 @@ function removeEnemy(enemy) {
 }
 
 class FriendlyAnimal extends Animal {
-    constructor(pos) {
-        super(pos, vec2(1,1));
+    constructor(pos, spriteRef) {
+        super(pos, spriteRef);
 
         this.id = randInt(32000);
 
@@ -295,6 +410,18 @@ class FriendlyAnimal extends Animal {
     }
 }
 
+class Wolf extends FriendlyAnimal {
+    constructor(pos) {
+        super(pos, spriteAtlas.wolf);
+    }
+}
+
+class Cardinal extends FriendlyAnimal {
+    constructor(pos) {
+        super(pos, spriteAtlas.cardinal);
+    }
+}
+
 function findFriendlyById(id) {
     for (let i=0;i<friendlies.length;i++) {
         if(friendlies[i].id == id) {
@@ -318,6 +445,24 @@ function gameInit()
     // setup the game
     canvasFixedSize = vec2(1280, 720); // 720p
 
+    // create a table of all sprites
+    spriteAtlas =
+    {
+        // large tiles
+        player:  tile(0,32),
+        wolf:  tile(8,32),
+        cardinal:  tile(12,32),
+        boar:  tile(16,32),
+        skunk: tile(20,32),
+        ark: tile(0, vec2(96,48), 1),
+        grass: tile(0,16,2),
+        shadow: tile(24,32),
+
+        // small tiles
+        //gun:     tile(2,8),
+        //grenade: tile(3,8),
+    };
+
     gameStarted = false;
     waveStarted = false;
     waveNumber = 0;
@@ -326,7 +471,6 @@ function gameInit()
 
     friendlies = [];
     enemies = [];
-    
     
     cameraPos = levelSize.scale(.5);
 }
@@ -354,7 +498,7 @@ function gameUpdate()
                 // we will pick a random x coord and spawn above or below map bounds
                 spawnLocation = vec2(1*randSign(), randInt(-1, levelSize.y+1));
             }
-            enemies.push(new EnemyAnimal(spawnLocation));
+            enemies.push(new EnemyAnimal(spawnLocation, spriteAtlas.boar));
         }
 
         if(mouseWasPressed(0)) {
@@ -371,7 +515,12 @@ function gameUpdate()
             console.log("Distance from Noah: " + mousePos.distance(noah.pos));
 
             if(mousePos.distance(noah.pos) <= noah.spawnRange) {
-                friendlies.push(new FriendlyAnimal(mousePos));
+                if(randInt(2) == 0) {
+                    friendlies.push(new Cardinal(mousePos));
+                } else {
+                    friendlies.push(new Wolf(mousePos));
+                }
+                
             }
         }
     }
@@ -454,7 +603,12 @@ function gameRender()
     // called before objects are rendered
     // draw any background effects that appear behind objects
     drawRect(cameraPos, levelSize.scale(2), rgb(1,1,1,1)); // background
-    drawRect(cameraPos, levelSize, rgb(0.38823529411764707,0.8196078431372549,0.06666666666666667,1)); // grass
+    //drawRect(cameraPos, levelSize, rgb(0.38823529411764707,0.8196078431372549,0.06666666666666667,1)); // grass
+    for(var x=0;x<levelSize.x;x+=1) {
+        for(var y=0;y<levelSize.y;y+=1) {
+            drawTile(vec2(x,y), vec2(1,1), spriteAtlas.grass);
+        }
+    }
     if (gameStarted) {
         //drawRect(cameraPos, vec2(levelSize.x-4, 2), rgb(0.69, 0.639, 0.451, 1)); // road
     }
@@ -523,4 +677,4 @@ function gameRenderPost()
 
 ///////////////////////////////////////////////////////////////////////////////
 // Startup LittleJS Engine
-engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png']);
+engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'ark.png', 'grass.png']);
