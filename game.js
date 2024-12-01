@@ -9,10 +9,12 @@
 // show the LittleJS splash screen
 //setShowSplashScreen(true);
 
-let gameStarted, spriteAtlas, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies;
+let gameStarted, spriteAtlas, setupPhase, setupPhaseTimer, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies;
 let grassTiles, treeTiles, grassLayer, treeLayer;
+let totalEnemiesKilled, enemiesKilledInWave;
 const levelSize = vec2(42, 24);
-let waveTimeDefault = 5.0;
+let setupTimeDefault = 20.0;
+let waveTimeDefault = 25.0;
 let enemySpawnTimeDefault = 2.0;
 const friendlySpawnTimeDefault = 2.0;
 const maxFriendliesAllowed = 1;
@@ -30,7 +32,7 @@ const snd_noah_cast = new Sound([3.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.9
 
 class Noah extends EngineObject {
     constructor(pos) {
-        super(pos, vec2(1.5,1.5));
+        super(pos, vec2(1,1));
 
         this.setCollision();
 
@@ -43,6 +45,7 @@ class Noah extends EngineObject {
         this.attackTimerDefault = 0.8;
         this.spawnRange = 3.0;
         this.showSpawnRange = true;
+        this.spawnersAllowed = 1;
         this.color = rgb(1, 1, 1, 1);
         this.animationFrame = 0;
         this.frameTime = 0.1;
@@ -57,7 +60,7 @@ class Noah extends EngineObject {
         this.currentFrame = 0;
         this.frameOffset = 0;
         this.maxFrames = 0;
-        this.drawSize = vec2(1.5,1.5);
+        this.drawSize = vec2(1,1);
     }
 
     update() {
@@ -94,9 +97,9 @@ class Noah extends EngineObject {
 
         if(this.isCasting) {
             this.state = 'casting';
-            this.drawSize = vec2(1.5,3);
+            this.drawSize = vec2(1,2);
         } else {
-            this.drawSize = vec2(1.5,1.5);
+            this.drawSize = vec2(1,1);
         }
 
         super.update();
@@ -165,7 +168,7 @@ class Noah extends EngineObject {
         }
 
         // draw shadow
-        drawTile(vec2(this.pos.x, this.pos.y-0.4), vec2(1.2,1.2), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+        drawTile(vec2(this.pos.x, this.pos.y-0.2), vec2(0.8,0.8), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
         // draw character
         drawTile(this.pos, this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
         
@@ -492,6 +495,63 @@ class Cardinal extends FriendlyAnimal {
     }
 }
 
+class Spawner extends EngineObject {
+    constructor(pos, spriteRef) {
+        super(pos, vec2(1,1), spriteRef);
+
+        this.spawnTime = 5.0;
+        this.spawnTimer = 0;
+    }
+}
+
+class BirdNest extends Spawner {
+    constructor(pos) {
+        super(pos, spriteAtlas.nest);
+    }
+
+    update() {
+        if(waveStarted && !this.spawnTimer) {
+            this.spawnTimer = new Timer(this.spawnTime);
+        }
+
+        if(setupPhase) {
+            this.spawnTimer = 0;
+        }
+
+        if(this.spawnTimer && this.spawnTimer.elapsed()) {
+            friendlies.push(new Cardinal(this.pos));
+
+            this.spawnTimer = new Timer(this.spawnTime);
+        }
+
+        super.update();
+    }
+}
+
+class WolfDen extends Spawner {
+    constructor(pos) {
+        super(pos, spriteAtlas.cave);
+    }
+
+    update() {
+        if(waveStarted && !this.spawnTimer) {
+            this.spawnTimer = new Timer(this.spawnTime);
+        }
+
+        if(setupPhase) {
+            this.spawnTimer = 0;
+        }
+        
+        if(this.spawnTimer && this.spawnTimer.elapsed()) {
+            friendlies.push(new Wolf(this.pos));
+
+            this.spawnTimer = new Timer(this.spawnTime);
+        }
+
+        super.update();
+    }
+}
+
 function findFriendlyById(id) {
     for (let i=0;i<friendlies.length;i++) {
         if(friendlies[i].id == id) {
@@ -534,6 +594,8 @@ function gameInit()
         tree2: tile(32,32),
         tree3: tile(33,32),
         tree4: tile(34,32),
+        nest: tile(36,32),
+        cave: tile(37,32),
         playerCast: new TileInfo(vec2(0,160), vec2(32,64)),
 
         // small tiles
@@ -563,14 +625,10 @@ function gameInit()
         }
     }
 
-    gameStarted = false;
-    waveStarted = false;
-    waveNumber = 0;
-    waveTimer = 0.0;
-    waveFinished = false;
-
     friendlies = [];
     enemies = [];
+
+    newGame();
     
     cameraPos = levelSize.scale(.5);
 }
@@ -634,6 +692,24 @@ function gameUpdate()
                 
             }
         }
+    } else {
+        if(setupPhase) {
+            if(mouseWasPressed(0)) {
+                noah.target = mousePos;
+            }
+
+            if(mouseWasPressed(1)) {
+                new BirdNest(mousePos);
+            }
+
+            if(mouseWasPressed(2)) {
+                new WolfDen(mousePos);
+            }
+        }
+
+        if(setupPhase && setupPhaseTimer.elapsed()) {
+            startWave();
+        }
     }
 
     if(waveFinished) {
@@ -648,13 +724,18 @@ function gameUpdate()
         ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
         console.log("Ark made");
 
+        if(noah) {
+            noah.destroy();
+        }
+
         noah = new Noah(vec2(levelSize.x/2, levelSize.y/2-5));
         console.log("Noah made");
     
         startLevel();
         console.log("Level started");
-    } else if(!waveStarted && mouseWasPressed(0)) {
-        startWave();
+    } else if(!waveStarted && mouseWasPressed(0) && !setupPhase) {
+        setupPhase = true;
+        setupPhaseTimer = new Timer(setupTimeDefault);
     } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0)) {
         newGame();
     }
@@ -668,9 +749,16 @@ function startLevel() {
     enemySpawnTimeDefault -= 0.1;
 
     waveStarted = false;
+
+    setupPhase = true;
+    setupPhaseTimer = new Timer(setupTimeDefault);
+
+    resetAnimals();
 }
 
 function startWave() {
+    setupPhase = false;
+    enemiesKilledInWave = 0;
     waveStarted = true;
     console.log("Wave started");
     waveTimer = new Timer(waveTimeDefault);
@@ -682,6 +770,8 @@ function startWave() {
 function newGame() {
     resetAnimals();
 
+    totalEnemiesKilled = 0;
+    enemiesKilledInWave = 0;
     waveStarted = false;
     gameStarted = false;
     waveNumber = 0;
@@ -744,14 +834,20 @@ function gameRenderPost()
     if (!gameStarted) {
         drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
         drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-    } else if (gameStarted && !waveStarted) {
+    } else if (gameStarted && !waveStarted && !setupPhase) {
         if (!ark) {
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
             drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         } else {
             drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
-            drawTextScreen('Click to Start Wave!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+            drawTextScreen('Click to Start Setup before Wave!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         }
+    } else if (gameStarted && !waveStarted && setupPhase) {
+        if(setupPhaseTimer) {
+            drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-20), 30);
+        }
+
+        drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
     } else if (gameStarted && waveStarted) {
         if (!ark) {
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
