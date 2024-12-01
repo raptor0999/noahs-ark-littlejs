@@ -18,8 +18,6 @@ const sourceFiles =
 const dataFiles =
 [
     'tiles.png',
-    'ark.png',
-    'grass.png',
     // add your game's data files here
 ];
 
