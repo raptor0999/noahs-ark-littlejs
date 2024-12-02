@@ -18,7 +18,6 @@ let waveTimeDefault = 25.0;
 let enemySpawnTimeDefault = 2.0;
 const friendlySpawnTimeDefault = 2.0;
 const maxFriendliesAllowed = 1;
-let maxSpawnersAllowed = 1;
 
 const enemyHealthModifierByWave = [0,0,1,1,2,3,4,5];
 const friendlyModifierByWave = [0,0,1,1,2,3,4,5];
@@ -45,8 +44,8 @@ class Noah extends EngineObject {
         this.attackTimer = new Timer(0);
         this.attackTimerDefault = 0.8;
         this.spawnRange = 3.0;
-        this.showSpawnRange = true;
-        this.spawnersAllowed = 1;
+        this.showSpawnRange = false;
+        this.spawnersAllowed = 0;
         this.color = rgb(1, 1, 1, 1);
         this.animationFrame = 0;
         this.frameTime = 0.1;
@@ -398,6 +397,8 @@ class FriendlyAnimal extends Animal {
         this.attackDistance = 5.0;
         this.attackTimer = new Timer(0);
         this.attackTimerDefault = 1.5;
+        this.targetTimer = new Timer(0);
+        this.targetTimerDefault = 1.0;
         this.target = 0;
         this.color = rgb(1, 1, 1, 1);
 
@@ -442,7 +443,7 @@ class Wolf extends FriendlyAnimal {
             }
         }
 
-        if(!this.target) {
+        if(!this.target || this.targetTimer.elapsed()) {
             // find nearest enemy and target
             let curEnemyDistance = 100.0
 
@@ -451,9 +452,11 @@ class Wolf extends FriendlyAnimal {
 
                 if(enemyDistance < curEnemyDistance) {
                     this.target = enemies[i];
-                    break;
+                    curEnemyDistance = enemyDistance;
                 }
             }
+
+            this.targetTimer = new Timer(this.targetTimerDefault)
         }
 
         if(this.target) {
@@ -493,7 +496,7 @@ class Cardinal extends FriendlyAnimal {
 
                 if(enemyDistance < curEnemyDistance) {
                     this.target = enemies[i];
-                    break;
+                    curEnemyDistance = enemyDistance;
                 }
             }
         }
@@ -525,7 +528,7 @@ class Spawner extends EngineObject {
     constructor(pos, spriteRef) {
         super(pos, vec2(1,1), spriteRef);
 
-        this.spawnTime = 5.0;
+        this.spawnTime = 8.0;
         this.spawnTimer = 0;
     }
 }
@@ -537,7 +540,7 @@ class BirdNest extends Spawner {
 
     update() {
         if(waveStarted && !this.spawnTimer) {
-            this.spawnTimer = new Timer(this.spawnTime);
+            this.spawnTimer = new Timer(0);
         }
 
         if(setupPhase) {
@@ -705,7 +708,7 @@ function gameUpdate()
             snd_noah_cast.play();
         }
 
-        if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
+        /*if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
             // spawn friendlyAnimal if within spawn range
             console.log("Distance from Noah: " + mousePos.distance(noah.pos));
 
@@ -717,7 +720,7 @@ function gameUpdate()
                 }
                 
             }
-        }
+        }*/
     } else {
         if(setupPhase) {
             if(mouseWasPressed(0)) {
@@ -734,7 +737,7 @@ function gameUpdate()
                     }
                 }
 
-                if(treeOverlapped && spawners.length < maxSpawnersAllowed) {
+                if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
                     spawners.push(new BirdNest(mousePos));
                 }
             }
@@ -749,7 +752,7 @@ function gameUpdate()
                     }
                 }
 
-                if(!treeOverlapped && spawners.length < maxSpawnersAllowed) {
+                if(!treeOverlapped && spawners.length < noah.spawnersAllowed) {
                     spawners.push(new WolfDen(mousePos));
                 }
             }
@@ -786,6 +789,8 @@ function gameUpdate()
         setupPhaseTimer = new Timer(setupTimeDefault);
     } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0)) {
         newGame();
+    } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0)) {
+        newGame();
     }
 }
 
@@ -795,7 +800,7 @@ function startLevel() {
     waveNumber += 1;
     waveTimeDefault += 5.0;
     enemySpawnTimeDefault -= 0.1;
-
+    noah.spawnersAllowed += 1;
     waveStarted = false;
 
     //setupPhase = true;
@@ -890,6 +895,8 @@ function gameRenderPost()
         drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
     } else if (gameStarted && !waveStarted && !setupPhase) {
         if (!ark) {
+            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
             drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         } else {
@@ -908,13 +915,13 @@ function gameRenderPost()
     } else if (gameStarted && !waveStarted && setupPhase) {
         if(setupPhaseTimer) {
             drawRect(vec2(cameraPos.x, 22), vec2(14,2), rgb(0.1,0.1,0.1,0.4));
-            drawTextScreen('Spawners Placed: ' + spawners.length + '/' + maxSpawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
+            drawTextScreen('Spawners Placed: ' + spawners.length + '/' + noah.spawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
 
             drawRect(vec2(cameraPos.x, 2), vec2(16,2), rgb(0.1,0.1,0.1,0.6));
             drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
         }
 
-        drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
+        //drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
     } else if (gameStarted && waveStarted) {
         if (!ark) {
             drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
