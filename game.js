@@ -29,6 +29,8 @@ const snd_enemy_die = new Sound([,,194,.02,.03,.02,3,2.3,-2,30,,,,,,,,.56,.02,.1
 const snd_ark_hit = new Sound([2,,424,.02,.06,.11,,1.7,-4,,,,,1.6,,.5,.11,.83,.03]); // Hit 3
 const snd_ark_destroy = new Sound([2.1,,51,.06,.22,.33,4,3.7,,,,,,1.2,,.5,.35,.3,.23]); // Explosion 4
 const snd_noah_cast = new Sound([3.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.99,.12,.03,-1407]); // Powerup 12
+const snd_noah_cast_explosion = new Sound([,,85,.1,.48,.51,4,3.1,4,-1,,,.05,,,.2,,.8,.32,.16]); // Explosion 20
+const snd_spawner_place = new Sound([,,568,.02,.13,.32,,.2,,-1,-68,.05,.09,,1,,,.59,.29]); // Powerup 17
 
 class Noah extends EngineObject {
     constructor(pos) {
@@ -57,6 +59,12 @@ class Noah extends EngineObject {
         this.castAnimationOffset = 0;
         this.castAnimationFrames = 6;
         this.isCasting = false;
+        this.castPoint = 0;
+        this.castDone = true;
+        this.castDamage = 2.0;
+        this.castRadius = 10.0;
+        this.castTimer = new Timer(0);
+        this.castTimerDefault = 10.0;
         this.currentFrame = 0;
         this.frameOffset = 0;
         this.maxFrames = 0;
@@ -122,9 +130,7 @@ class Noah extends EngineObject {
     }
 
     takeDamage(dmg) {
-        console.log("Health was " + this.health);
         this.health -= dmg;
-        console.log("Health is " + this.health);
 
         if(this.health < 1) {
             //snd_ark_destroy.play()
@@ -136,8 +142,6 @@ class Noah extends EngineObject {
     }
 
     render() {
-        
-
         if(this.isCasting) {
             this.tileInfo = spriteAtlas.playerCast.frame(this.animationFrame);
         } else {
@@ -173,6 +177,8 @@ class Noah extends EngineObject {
         drawTile(vec2(this.pos.x, this.pos.y-0.2), vec2(0.8,0.8), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
         // draw character
         drawTile(this.pos, this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
+        // draw cast icon
+        drawTile(vec2(this.pos.x+0.4, this.pos.y+0.2), vec2(0.3,0.3), spriteAtlas.circle, rgb(0,0,1,(this.castTimerDefault+this.castTimer.get())/10*0.7), this.angle, this.mirror);
         
     }
 }
@@ -183,7 +189,7 @@ class Ark extends EngineObject {
 
         this.setCollision();
 
-        this.health = 5;
+        this.health = 10;
         this.damage = 10;
     }
 
@@ -196,9 +202,7 @@ class Ark extends EngineObject {
     }
 
     takeDamage(dmg) {
-        console.log("Health was " + this.health);
         this.health -= dmg;
-        console.log("Health is " + this.health);
 
         if(this.health < 1) {
             snd_ark_destroy.play()
@@ -338,9 +342,7 @@ class EnemyAnimal extends Animal {
     }
 
     takeDamage(dmg) {
-        console.log("Health was " + this.health);
         this.health -= dmg;
-        console.log("Health is " + this.health);
 
         if(this.health < 1) {
             snd_enemy_die.play();
@@ -414,9 +416,7 @@ class FriendlyAnimal extends Animal {
     }
 
     takeDamage(dmg) {
-        console.log("Health was " + this.health);
         this.health -= dmg;
-        console.log("Health is " + this.health);
 
         if(this.health < 1) {
             snd_enemy_die.play()
@@ -621,10 +621,11 @@ function gameInit()
         grass2: tile(28,32),
         grass3: tile(29,32),
         grass4: tile(30,32),
-        tree1: tile(31,32),
-        tree2: tile(32,32),
-        tree3: tile(33,32),
-        tree4: tile(34,32),
+        circle: tile(31,32),
+        tree1: tile(32,32),
+        tree2: tile(33,32),
+        tree3: tile(34,32),
+        tree4: tile(35,32),
         nest: tile(36,32),
         cave: tile(37,32),
         playerCast: new TileInfo(vec2(0,160), vec2(32,64)),
@@ -702,10 +703,31 @@ function gameUpdate()
             friendlyMod = friendlyModifierByWave[waveNumber-1];
         }
 
-        if(mouseWasPressed(1) && !noah.isCasting) {
+        if(mouseWasPressed(1) && !noah.isCasting && noah.castTimer.elapsed()) {
             noah.isCasting = true;
+            noah.castDone = false;
             noah.currentFrame = 0;
             snd_noah_cast.play();
+            noah.castPoint = mousePos;
+        }
+
+        if(noah.isCasting && noah.currentFrame == 5 && !noah.castDone) {
+            snd_noah_cast_explosion.play();
+            new ParticleEmitter(noah.castPoint, 0, 0.2, 0.6, 250, 3.14, tile(0, 16), new Color(1, 1, 0, 1), new Color(1, 0.502, 0.251, 1), new Color(1, 0, 0, 0.1), new Color(0.502, 0.251, 0.251, 0.1), 0.8, 0.1, 0.5, 0.15, 0.1, 1, 1, 0.1, 2.6, 0.05, 0.51, 0, 1, 1);
+
+            // find enemies in cast radius and make them take damage
+            for (let i=0;i<enemies.length;i++) {
+                let enemyDistance = noah.castPoint.distance(enemies[i].pos);
+
+                if(enemyDistance <= noah.castRadius) {
+                    // this enemy is within the cast radius, lets f them up
+                    enemies[i].takeDamage(noah.castDamage);
+                    console.log("Distance from cast: " + enemyDistance);
+                }
+            }
+
+            noah.castDone = true;
+            noah.castTimer = new Timer(noah.castTimerDefault);
         }
 
         /*if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
@@ -739,6 +761,7 @@ function gameUpdate()
 
                 if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
                     spawners.push(new BirdNest(mousePos));
+                    snd_spawner_place.play();
                 }
             }
 
@@ -754,6 +777,7 @@ function gameUpdate()
 
                 if(!treeOverlapped && spawners.length < noah.spawnersAllowed) {
                     spawners.push(new WolfDen(mousePos));
+                    snd_spawner_place.play();
                 }
             }
         }
@@ -879,7 +903,7 @@ function gameRender()
 
 function drawEnemyHealth() {
     for (let i=0;i<enemies.length;i++) {
-        drawText(enemies[i].health, enemies[i].pos.add(vec2(0, 1)), 1);
+        drawText(enemies[i].health, enemies[i].pos.add(vec2(0, 0.75)), 0.5);
     }
 }
 
