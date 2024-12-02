@@ -566,7 +566,7 @@ class WolfDen extends Spawner {
 
     update() {
         if(waveStarted && !this.spawnTimer) {
-            this.spawnTimer = new Timer(this.spawnTime);
+            this.spawnTimer = new Timer(0);
         }
 
         if(setupPhase) {
