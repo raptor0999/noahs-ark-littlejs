@@ -9,7 +9,7 @@
 // show the LittleJS splash screen
 //setShowSplashScreen(true);
 
-let gameStarted, spriteAtlas, setupPhase, setupPhaseTimer, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies;
+let gameStarted, spriteAtlas, setupPhase, setupPhaseTimer, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies, spawners;
 let grassTiles, treeTiles, grassLayer, treeLayer;
 let totalEnemiesKilled, enemiesKilledInWave;
 const levelSize = vec2(42, 24);
@@ -18,6 +18,7 @@ let waveTimeDefault = 25.0;
 let enemySpawnTimeDefault = 2.0;
 const friendlySpawnTimeDefault = 2.0;
 const maxFriendliesAllowed = 1;
+let maxSpawnersAllowed = 1;
 
 const enemyHealthModifierByWave = [0,0,1,1,2,3,4,5];
 const friendlyModifierByWave = [0,0,1,1,2,3,4,5];
@@ -101,6 +102,8 @@ class Noah extends EngineObject {
         } else {
             this.drawSize = vec2(1,1);
         }
+
+        this.renderOrder = 1;
 
         super.update();
     }
@@ -205,6 +208,12 @@ class Ark extends EngineObject {
         } else {
             snd_ark_hit.play();
         }
+    }
+
+    update() {
+        this.renderOrder = 5;
+
+        super.update();
     }
 
     render() {
@@ -339,6 +348,9 @@ class EnemyAnimal extends Animal {
 
             removeEnemy(this);
             this.destroy();
+
+            enemiesKilledInWave += 1;
+            totalEnemiesKilled += 1;
         } else {
             snd_enemy_hit.play();
         }
@@ -490,7 +502,21 @@ class Cardinal extends FriendlyAnimal {
             this.velocity = this.target.pos.subtract(this.pos).normalize(this.speed);
         }
 
+        this.renderOrder = 3;
+
         // update physics
+        super.update();
+    }
+}
+
+class Tree extends EngineObject {
+    constructor(pos, spriteRef) {
+        super(pos, vec2(2,2), spriteRef);
+    }
+
+    update() {
+        this.renderOrder = 2;
+
         super.update();
     }
 }
@@ -523,6 +549,8 @@ class BirdNest extends Spawner {
 
             this.spawnTimer = new Timer(this.spawnTime);
         }
+
+        this.renderOrder = 2;
 
         super.update();
     }
@@ -613,10 +641,7 @@ function gameInit()
     
     treeLayer = new Array(50);
     for(var i=0;i<treeLayer.length;i++) {
-        treeLayer[i] = {
-            pos: vec2(randInt(levelSize.x), randInt(levelSize.y)),
-            tile: treeTiles[randInt(4)],
-        };
+        treeLayer[i] = new Tree(vec2(randInt(levelSize.x), randInt(levelSize.y)), treeTiles[randInt(4)]);
     }
 
     for(var x=0;x<levelSize.x;x+=1) {
@@ -627,6 +652,7 @@ function gameInit()
 
     friendlies = [];
     enemies = [];
+    spawners = [];
 
     newGame();
     
@@ -699,11 +725,33 @@ function gameUpdate()
             }
 
             if(mouseWasPressed(1)) {
-                new BirdNest(mousePos);
+                // let's make sure it is in a tree
+                let treeOverlapped = false;
+                for(var i=0;i<treeLayer.length;i++) {
+                    if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
+                        treeOverlapped = true;
+                        break;
+                    }
+                }
+
+                if(treeOverlapped && spawners.length < maxSpawnersAllowed) {
+                    spawners.push(new BirdNest(mousePos));
+                }
             }
 
             if(mouseWasPressed(2)) {
-                new WolfDen(mousePos);
+                // let's make sure it is NOT in a tree
+                let treeOverlapped = false;
+                for(var i=0;i<treeLayer.length;i++) {
+                    if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
+                        treeOverlapped = true;
+                        break;
+                    }
+                }
+
+                if(!treeOverlapped && spawners.length < maxSpawnersAllowed) {
+                    spawners.push(new WolfDen(mousePos));
+                }
             }
         }
 
@@ -750,8 +798,8 @@ function startLevel() {
 
     waveStarted = false;
 
-    setupPhase = true;
-    setupPhaseTimer = new Timer(setupTimeDefault);
+    //setupPhase = true;
+    //setupPhaseTimer = new Timer(setupTimeDefault);
 
     resetAnimals();
 }
@@ -775,7 +823,7 @@ function newGame() {
     waveStarted = false;
     gameStarted = false;
     waveNumber = 0;
-    waveTimeDefault = 5.0;
+    waveTimeDefault = 25.0;
     enemySpawnTimeDefault = 2.0;
 }
 
@@ -786,9 +834,13 @@ function resetAnimals() {
     for (let i=0;i<friendlies.length;i++) {
         friendlies[i].destroy();
     }
+    for (let i=0;i<spawners.length;i++) {
+        spawners[i].destroy();
+    }
 
     enemies = [];
     friendlies = [];
+    spawners = [];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -815,9 +867,9 @@ function gameRender()
     }
     
     // draw trees 
-    for(var x=0;x<treeLayer.length;x++) {
+    /*for(var x=0;x<treeLayer.length;x++) {
         drawTile(treeLayer[x].pos, vec2(2,2), treeLayer[x].tile);
-    }
+    }*/
 }
 
 function drawEnemyHealth() {
@@ -832,6 +884,8 @@ function gameRenderPost()
     // called after objects are rendered
     // draw effects or hud that appear above all objects
     if (!gameStarted) {
+        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
+        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
         drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
         drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
     } else if (gameStarted && !waveStarted && !setupPhase) {
@@ -839,26 +893,44 @@ function gameRenderPost()
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
             drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         } else {
+            if(waveNumber > 1) {
+                drawRect(cameraPos, vec2(21,14), rgb(0.9,0.9,0.9,1));
+                drawRect(cameraPos, vec2(20,13), rgb(0.1,0.1,0.1,1));
+                drawTextScreen('Enemies killed during Wave ' + (waveNumber-1) + ': ' + enemiesKilledInWave, mainCanvasSize.scale(.5).add(vec2(0,-160)), 30);
+                drawTextScreen('Total enemies killed this game: ' + totalEnemiesKilled, mainCanvasSize.scale(.5).add(vec2(0,-120)), 30);
+            } else {
+                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
+            }
             drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
-            drawTextScreen('Click to Start Setup before Wave!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+            drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         }
     } else if (gameStarted && !waveStarted && setupPhase) {
         if(setupPhaseTimer) {
-            drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-20), 30);
+            drawRect(vec2(cameraPos.x, 22), vec2(14,2), rgb(0.1,0.1,0.1,0.4));
+            drawTextScreen('Spawners Placed: ' + spawners.length + '/' + maxSpawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
+
+            drawRect(vec2(cameraPos.x, 2), vec2(16,2), rgb(0.1,0.1,0.1,0.6));
+            drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
         }
 
         drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
     } else if (gameStarted && waveStarted) {
         if (!ark) {
+            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
             drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         } else {
-            drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 20), 30);
+            drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+            drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 40), 30);
             if(waveTimer) {
-                drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-20), 30);
+                drawRect(vec2(cameraPos.x, 2), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+                drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
             }
             if(enemySpawnTimer) {
-                drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+300, mainCanvasSize.y-20), 20);
+                drawRect(vec2(cameraPos.x+10, 2), vec2(9,2), rgb(0.1,0.1,0.1,0.4));
+                drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+320, mainCanvasSize.y-40), 20);
             }
             if(enemies.length > 0) {
                 drawEnemyHealth();
