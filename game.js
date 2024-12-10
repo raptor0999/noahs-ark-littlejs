@@ -12,16 +12,22 @@
 let gameStarted, spriteAtlas, setupPhase, setupPhaseTimer, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies, spawners;
 let grassTiles, treeTiles, grassLayer, treeLayer;
 let totalEnemiesKilled, enemiesKilledInWave;
+let waterObjects = [];
 const levelSize = vec2(42, 24);
-let setupTimeDefault = 20.0;
+let setupTimeDefault = 2.0;
 let waveTimeDefault = 25.0;
 let enemySpawnTimeDefault = 2.0;
 const friendlySpawnTimeDefault = 2.0;
 const maxFriendliesAllowed = 1;
 
+const afterWaveUpgrade = ['Noah Atk Dmg+', 'Noah Atk Spd+', 'Noah Cast Dmg+', 'Noah Cast Spd+', 'Friendly Atk Dmg+'];
+let upgrade1 = '';
+let upgrade2 = '';
+
 const enemyHealthModifierByWave = [0,0,1,1,2,3,4,5];
 const friendlyModifierByWave = [0,0,1,1,2,3,4,5];
 
+const snd_wave_upgrade = new Sound([2,,666,.05,.15,.41,,2.8,,,,,.03,,3,,,.8,.15,,971]); // Powerup 23
 const snd_wave_start = new Sound([2.1,,319,.05,.18,.41,,1.9,-9,,,,.07,,,.2,.13,.6,.17,.22]); // Powerup 2
 const snd_enemy_spawn = new Sound([1.8,0,261.6256,.1,.62,.37,2,.2,,,,,.1,,,.1,.13,.32,.1,.45,-1044]); // Music 0
 const snd_enemy_hit = new Sound([3.3,,209,.01,.02,.18,3,3.1,,1,,,,1.1,,.4,.11,.89,.09,,-1556]); // Hit 6
@@ -524,6 +530,53 @@ class Tree extends EngineObject {
     }
 }
 
+class Water extends EngineObject {
+    constructor(pos) {
+        super(pos, vec2(1,1), spriteAtlas.water);
+
+        this.currentFrame = 0;
+        this.frameOffset = 0;
+        this.maxFrames = 5;
+        this.animationFrame = 0;
+        this.frameTime = 0.2;
+        this.frameTimer = new Timer(this.frameTime);
+    }
+
+    update() {
+        this.renderOrder = 2;
+
+        super.update();
+    }
+
+    render() {
+        console.log(this.animationFrame);
+        this.tileInfo = spriteAtlas.water.frame(this.animationFrame);
+
+        // figure out what animation and then draw the frame
+        if(this.frameTimer.elapsed()) {
+            // increment frame
+            if(this.currentFrame < this.maxFrames-1) {
+                this.currentFrame += 1;
+                this.animationFrame = this.currentFrame + this.frameOffset;
+            } else {
+                this.currentFrame = 0;
+                this.animationFrame = this.currentFrame + this.frameOffset;
+            }
+
+            this.frameTimer = new Timer(this.frameTime);
+        }
+
+        // draw character
+        drawTile(this.pos, this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
+    }
+}
+
+function spawnWaterObjects(amount) {
+    for(var i=0;i<amount;i++) {
+        waterObjects.push(new Water(vec2(randInt(levelSize.x), randInt(levelSize.y))));
+    }
+}
+
 class Spawner extends EngineObject {
     constructor(pos, spriteRef) {
         super(pos, vec2(1,1), spriteRef);
@@ -629,6 +682,7 @@ function gameInit()
         nest: tile(36,32),
         cave: tile(37,32),
         playerCast: new TileInfo(vec2(0,160), vec2(32,64)),
+        water: tile(56,32),
 
         // small tiles
         //gun:     tile(2,8),
@@ -793,7 +847,7 @@ function gameUpdate()
         startLevel();
     }
 
-    if(!gameStarted && !ark && mouseWasPressed(0)) {
+    if(!gameStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
         gameStarted = true;
 
         ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
@@ -809,11 +863,30 @@ function gameUpdate()
         startLevel();
         console.log("Level started");
     } else if(!waveStarted && mouseWasPressed(0) && !setupPhase) {
-        setupPhase = true;
-        setupPhaseTimer = new Timer(setupTimeDefault);
-    } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0)) {
+        if(waveNumber > 1) {
+            // upgrade 1 clicked
+            if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2))) {
+                grantUpgrade(upgrade1);
+                setupPhase = true;
+                setupPhaseTimer = new Timer(setupTimeDefault);
+            }
+
+            // upgrade 2 clicked
+            if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2))) {
+                grantUpgrade(upgrade2);
+                setupPhase = true;
+                setupPhaseTimer = new Timer(setupTimeDefault);
+            }
+        } else {
+            if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                setupPhase = true;
+                setupPhaseTimer = new Timer(setupTimeDefault);
+            }
+        }
+        
+    } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
         newGame();
-    } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0)) {
+    } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
         newGame();
     }
 }
@@ -827,6 +900,10 @@ function startLevel() {
     noah.spawnersAllowed += 1;
     waveStarted = false;
 
+    // establish upgrades to pick from
+    upgrade1 = afterWaveUpgrade[randInt(afterWaveUpgrade.length)];
+    upgrade2 = afterWaveUpgrade[randInt(afterWaveUpgrade.length)];
+
     //setupPhase = true;
     //setupPhaseTimer = new Timer(setupTimeDefault);
 
@@ -838,6 +915,7 @@ function startWave() {
     enemiesKilledInWave = 0;
     waveStarted = true;
     console.log("Wave started");
+    spawnWaterObjects(50);
     waveTimer = new Timer(waveTimeDefault);
     enemySpawnTimer = new Timer(3);
     friendlySpawnTimer = new Timer(0);
@@ -854,6 +932,8 @@ function newGame() {
     waveNumber = 0;
     waveTimeDefault = 25.0;
     enemySpawnTimeDefault = 2.0;
+    upgrade1 = '';
+    upgrade2 = '';
 }
 
 function resetAnimals() {
@@ -866,10 +946,14 @@ function resetAnimals() {
     for (let i=0;i<spawners.length;i++) {
         spawners[i].destroy();
     }
+    for (let i=0;i<waterObjects.length;i++) {
+        waterObjects[i].destroy();
+    }
 
     enemies = [];
     friendlies = [];
     spawners = [];
+    waterObjects = [];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -907,6 +991,30 @@ function drawEnemyHealth() {
     }
 }
 
+function grantUpgrade(upgrade) {
+    snd_wave_upgrade.play();
+
+    if(upgrade == 'Noah Atk Dmg+') {
+
+    }
+
+    if(upgrade == 'Noah Atk Spd+') {
+
+    }
+
+    if(upgrade == 'Noah Cast Dmg+') {
+
+    }
+
+    if(upgrade == 'Noah Cast Spd+') {
+
+    }
+
+    if(upgrade == 'Friendly Atk Dmg+') {
+
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 function gameRenderPost()
 {
@@ -916,12 +1024,14 @@ function gameRenderPost()
         drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
         drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
         drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
+        drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
         drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
     } else if (gameStarted && !waveStarted && !setupPhase) {
         if (!ark) {
             drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
             drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
+            drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
             drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         } else {
             if(waveNumber > 1) {
@@ -929,12 +1039,21 @@ function gameRenderPost()
                 drawRect(cameraPos, vec2(20,13), rgb(0.1,0.1,0.1,1));
                 drawTextScreen('Enemies killed during Wave ' + (waveNumber-1) + ': ' + enemiesKilledInWave, mainCanvasSize.scale(.5).add(vec2(0,-160)), 30);
                 drawTextScreen('Total enemies killed this game: ' + totalEnemiesKilled, mainCanvasSize.scale(.5).add(vec2(0,-120)), 30);
+
+                // upgrade selection
+                drawRect(vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
+                drawTextScreen(upgrade1, mainCanvasSize.scale(.5).add(vec2(-125, 130)), 20);
+                drawRect(vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
+                drawTextScreen(upgrade2, mainCanvasSize.scale(.5).add(vec2(125, 130)), 20);
             } else {
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
+
+                drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
+                drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
             }
+            
             drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
-            drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         }
     } else if (gameStarted && !waveStarted && setupPhase) {
         if(setupPhaseTimer) {
@@ -951,6 +1070,7 @@ function gameRenderPost()
             drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
             drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
             drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
+            drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
             drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
         } else {
             drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
