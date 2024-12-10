@@ -14,7 +14,7 @@ let grassTiles, treeTiles, grassLayer, treeLayer;
 let totalEnemiesKilled, enemiesKilledInWave;
 let waterObjects = [];
 const levelSize = vec2(42, 24);
-let setupTimeDefault = 2.0;
+let setupTimeDefault = 20.0;
 let waveTimeDefault = 25.0;
 let enemySpawnTimeDefault = 2.0;
 const friendlySpawnTimeDefault = 2.0;
@@ -24,8 +24,8 @@ const afterWaveUpgrade = ['Noah Atk Dmg+', 'Noah Atk Spd+', 'Noah Cast Dmg+', 'N
 let upgrade1 = '';
 let upgrade2 = '';
 
-const enemyHealthModifierByWave = [0,0,1,1,2,3,4,5];
-const friendlyModifierByWave = [0,0,1,1,2,3,4,5];
+const enemyHealthModifierByWave = [0,0,0,0,1,1,1,2,3];
+const friendlyModifierByWave = [0,0,1,1,2,2,2,3,4];
 
 const snd_wave_upgrade = new Sound([2,,666,.05,.15,.41,,2.8,,,,,.03,,3,,,.8,.15,,971]); // Powerup 23
 const snd_wave_start = new Sound([2.1,,319,.05,.18,.41,,1.9,-9,,,,.07,,,.2,.13,.6,.17,.22]); // Powerup 2
@@ -929,6 +929,7 @@ function startWave() {
 
 function newGame() {
     resetAnimals();
+    resetWater();
 
     totalEnemiesKilled = 0;
     enemiesKilledInWave = 0;
@@ -951,13 +952,17 @@ function resetAnimals() {
     for (let i=0;i<spawners.length;i++) {
         spawners[i].destroy();
     }
-    for (let i=0;i<waterObjects.length;i++) {
-        waterObjects[i].destroy();
-    }
 
     enemies = [];
     friendlies = [];
     spawners = [];
+}
+
+function resetWater() {
+    for (let i=0;i<waterObjects.length;i++) {
+        waterObjects[i].destroy();
+    }
+
     waterObjects = [];
 }
 
