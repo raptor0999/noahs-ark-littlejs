@@ -20,7 +20,7 @@ let enemySpawnTimeDefault = 2.0;
 const friendlySpawnTimeDefault = 2.0;
 const maxFriendliesAllowed = 1;
 
-const afterWaveUpgrade = ['Noah Atk Dmg+', 'Noah Atk Spd+', 'Noah Cast Dmg+', 'Noah Cast Spd+', 'Friendly Atk Dmg+'];
+const afterWaveUpgrade = ['Noah Atk Dmg+', 'Noah Atk Spd+', 'Noah Cast Dmg+', 'Noah Cast Spd+', 'Noah Spd+'];
 let upgrade1 = '';
 let upgrade2 = '';
 
@@ -37,6 +37,8 @@ const snd_ark_destroy = new Sound([2.1,,51,.06,.22,.33,4,3.7,,,,,,1.2,,.5,.35,.3
 const snd_noah_cast = new Sound([3.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.99,.12,.03,-1407]); // Powerup 12
 const snd_noah_cast_explosion = new Sound([,,85,.1,.48,.51,4,3.1,4,-1,,,.05,,,.2,,.8,.32,.16]); // Explosion 20
 const snd_spawner_place = new Sound([,,568,.02,.13,.32,,.2,,-1,-68,.05,.09,,1,,,.59,.29]); // Powerup 17
+
+const msc_setup = new SoundWave('msc-setup.mp3');
 
 class Noah extends EngineObject {
     constructor(pos) {
@@ -543,13 +545,12 @@ class Water extends EngineObject {
     }
 
     update() {
-        this.renderOrder = 2;
+        this.renderOrder = 0;
 
         super.update();
     }
 
     render() {
-        console.log(this.animationFrame);
         this.tileInfo = spriteAtlas.water.frame(this.animationFrame);
 
         // figure out what animation and then draw the frame
@@ -837,6 +838,7 @@ function gameUpdate()
         }
 
         if(setupPhase && setupPhaseTimer.elapsed()) {
+            msc_setup.stop();
             startWave();
         }
     }
@@ -863,6 +865,9 @@ function gameUpdate()
         startLevel();
         console.log("Level started");
     } else if(!waveStarted && mouseWasPressed(0) && !setupPhase) {
+        // play setup music
+        msc_setup.play(null, 1, 1, 1, true);
+
         if(waveNumber > 1) {
             // upgrade 1 clicked
             if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2))) {
@@ -995,23 +1000,23 @@ function grantUpgrade(upgrade) {
     snd_wave_upgrade.play();
 
     if(upgrade == 'Noah Atk Dmg+') {
-
+        noah.damage += 1;
     }
 
     if(upgrade == 'Noah Atk Spd+') {
-
+        noah.attackTimerDefault -= 0.1;
     }
 
     if(upgrade == 'Noah Cast Dmg+') {
-
+        noah.castDamage += 1.0;
     }
 
     if(upgrade == 'Noah Cast Spd+') {
-
+        noah.castTimerDefault -= 0.5;
     }
 
-    if(upgrade == 'Friendly Atk Dmg+') {
-
+    if(upgrade == 'Noah Spd+') {
+        noah.speed += 0.01;
     }
 }
 
