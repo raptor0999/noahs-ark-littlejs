@@ -38,7 +38,78 @@ const snd_noah_cast = new Sound([3.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.9
 const snd_noah_cast_explosion = new Sound([,,85,.1,.48,.51,4,3.1,4,-1,,,.05,,,.2,,.8,.32,.16]); // Explosion 20
 const snd_spawner_place = new Sound([,,568,.02,.13,.32,,.2,,-1,-68,.05,.09,,1,,,.59,.29]); // Powerup 17
 
-const msc_setup = new SoundWave('msc-setup.mp3');
+let audio = document.createElement("audio");
+audio.loop = true;
+audio.volume = 1.0;
+let msc_title_src, msc_setup_src;
+
+// Initialize music generation (player).
+var t0 = new Date();
+var setup_player = new CPlayer();
+setup_player.init(setup_song);
+
+// Generate music...
+var setup_done = false;
+setInterval(function () {
+    if (setup_done) {
+      return;
+    }
+
+    setup_done = setup_player.generate() >= 1;
+
+    if (setup_done) {
+      var t1 = new Date();
+      console.log("msc setup generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = setup_player.createWave();
+      msc_setup_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+var title_player = new CPlayer();
+title_player.init(title_song);
+
+// Generate music...
+var title_done = false;
+setInterval(function () {
+    if (title_done) {
+      return;
+    }
+
+    title_done = title_player.generate() >= 1;
+
+    if (title_done) {
+      var t1 = new Date();
+      console.log("msc title generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = title_player.createWave();
+      msc_title_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+function play_music(type) {
+    audio.pause();
+    audio.currentTime = 0.0;
+
+    if(type == "title") {
+        console.log("title music");
+        audio.src = msc_title_src;
+    }
+
+    if(type == "setup") {
+        console.log("setup music");
+        audio.src = msc_setup_src;
+    }
+
+    audio.play();
+}
+
+function stop_music(type) {
+    audio.pause();
+    audio.currentTime = 0.0;
+}
 
 class Noah extends EngineObject {
     constructor(pos) {
@@ -838,7 +909,7 @@ function gameUpdate()
         }
 
         if(setupPhase && setupPhaseTimer.elapsed()) {
-            msc_setup.stop();
+            stop_music();
             startWave();
         }
     }
@@ -865,8 +936,8 @@ function gameUpdate()
         startLevel();
         console.log("Level started");
     } else if(!waveStarted && mouseWasPressed(0) && !setupPhase) {
-        // play setup music
-        msc_setup.play(null, 1, 1, 1, true);
+        // play title music
+        play_music("title");
 
         if(waveNumber > 1) {
             // upgrade 1 clicked
@@ -886,6 +957,7 @@ function gameUpdate()
             if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
                 setupPhase = true;
                 setupPhaseTimer = new Timer(setupTimeDefault);
+                play_music("setup");
             }
         }
         
@@ -940,6 +1012,8 @@ function newGame() {
     enemySpawnTimeDefault = 2.0;
     upgrade1 = '';
     upgrade2 = '';
+
+    play_music("title");
 }
 
 function resetAnimals() {
