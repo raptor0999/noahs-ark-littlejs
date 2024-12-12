@@ -17,8 +17,10 @@ let setupTimeDefault = 20.0;
 let waveTimeDefault = 25.0;
 let enemySpawnTimeDefault = 2.0;
 
+let waterAmount = 0;
+
 let win = false;
-let winWave = 1;
+let winWave = 11;
 
 const levelSize = vec2(42, 24);
 const friendlySpawnTimeDefault = 2.0;
@@ -649,7 +651,25 @@ class Water extends EngineObject {
 
 function spawnWaterObjects(amount) {
     for(var i=0;i<amount;i++) {
-        waterObjects.push(new Water(vec2(randInt(levelSize.x), randInt(levelSize.y))));
+        waterObjects.push(new Water(findRandomPosWithoutWater()));
+    }
+}
+
+function findRandomPosWithoutWater() {
+    while(true) {
+        let noWaterFound = true;
+        let newVec = vec2(randInt(levelSize.x), randInt(levelSize.y));
+
+        for(var i=0;i<waterObjects.length;i++) {
+            console.log("Water pos: " + waterObjects[i].pos);
+            if(waterObjects[i].pos == newVec) {
+                noWaterFound = false;
+            }
+        }
+
+        if(noWaterFound) {
+            return newVec;
+        }
     }
 }
 
@@ -977,6 +997,11 @@ function startLevel() {
         win = true;
     }
 
+    if (waveNumber > 1) {
+        waterAmount += 50;
+        spawnWaterObjects(waterAmount);
+    }
+
     waveTimeDefault += 5.0;
     enemySpawnTimeDefault -= 0.1;
     noah.spawnersAllowed += 1;
@@ -1002,7 +1027,6 @@ function startWave() {
     enemiesKilledInWave = 0;
     waveStarted = true;
     console.log("Wave started");
-    spawnWaterObjects(50);
     waveTimer = new Timer(waveTimeDefault);
     enemySpawnTimer = new Timer(3);
     friendlySpawnTimer = new Timer(0);
