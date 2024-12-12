@@ -33,21 +33,22 @@ let upgrade2 = '';
 const enemyHealthModifierByWave = [0,0,0,0,1,1,1,2,3];
 const friendlyModifierByWave = [0,0,1,1,2,2,2,3,4];
 
-const snd_wave_upgrade = new Sound([2,,666,.05,.15,.41,,2.8,,,,,.03,,3,,,.8,.15,,971]); // Powerup 23
-const snd_wave_start = new Sound([2.1,,319,.05,.18,.41,,1.9,-9,,,,.07,,,.2,.13,.6,.17,.22]); // Powerup 2
-const snd_enemy_spawn = new Sound([1.8,0,261.6256,.1,.62,.37,2,.2,,,,,.1,,,.1,.13,.32,.1,.45,-1044]); // Music 0
-const snd_enemy_hit = new Sound([3.3,,209,.01,.02,.18,3,3.1,,1,,,,1.1,,.4,.11,.89,.09,,-1556]); // Hit 6
-const snd_enemy_die = new Sound([,,194,.02,.03,.02,3,2.3,-2,30,,,,,,,,.56,.02,.12]); // Blip 5
-const snd_ark_hit = new Sound([2,,424,.02,.06,.11,,1.7,-4,,,,,1.6,,.5,.11,.83,.03]); // Hit 3
-const snd_ark_destroy = new Sound([2.1,,51,.06,.22,.33,4,3.7,,,,,,1.2,,.5,.35,.3,.23]); // Explosion 4
-const snd_noah_cast = new Sound([3.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.99,.12,.03,-1407]); // Powerup 12
-const snd_noah_cast_explosion = new Sound([,,85,.1,.48,.51,4,3.1,4,-1,,,.05,,,.2,,.8,.32,.16]); // Explosion 20
-const snd_spawner_place = new Sound([,,568,.02,.13,.32,,.2,,-1,-68,.05,.09,,1,,,.59,.29]); // Powerup 17
+const snd_button_click = new Sound([1,,397,.02,.06,.07,,3.4,,,,,,,,,.07,.86,.04]); // Pickup 41
+const snd_wave_upgrade = new Sound([0.5,,666,.05,.15,.41,,2.8,,,,,.03,,3,,,.8,.15,,971]); // Powerup 23
+const snd_wave_start = new Sound([0.5,,319,.05,.18,.41,,1.9,-9,,,,.07,,,.2,.13,.6,.17,.22]); // Powerup 2
+const snd_enemy_spawn = new Sound([0.3,0,261.6256,.1,.62,.37,2,.2,,,,,.1,,,.1,.13,.32,.1,.45,-1044]); // Music 0
+const snd_enemy_hit = new Sound([0.2,,209,.01,.02,.18,3,3.1,,1,,,,1.1,,.4,.11,.89,.09,,-1556]); // Hit 6
+const snd_enemy_die = new Sound([0.1,,194,.02,.03,.02,3,2.3,-2,30,,,,,,,,.56,.02,.12]); // Blip 5
+const snd_ark_hit = new Sound([0.3,,424,.02,.06,.11,,1.7,-4,,,,,1.6,,.5,.11,.83,.03]); // Hit 3
+const snd_ark_destroy = new Sound([0.8,,51,.06,.22,.33,4,3.7,,,,,,1.2,,.5,.35,.3,.23]); // Explosion 4
+const snd_noah_cast = new Sound([0.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.99,.12,.03,-1407]); // Powerup 12
+const snd_noah_cast_explosion = new Sound([0.1,,85,.1,.48,.51,4,3.1,4,-1,,,.05,,,.2,,.8,.32,.16]); // Explosion 20
+const snd_spawner_place = new Sound([0.1,,568,.02,.13,.32,,.2,,-1,-68,.05,.09,,1,,,.59,.29]); // Powerup 17
 
 let audio = document.createElement("audio");
 audio.loop = true;
 audio.volume = 1.0;
-let msc_title_src, msc_setup_src;
+let msc_title_src, msc_setup_src, msc_wave1_src;
 
 // Initialize music generation (player).
 var t0 = new Date();
@@ -95,18 +96,48 @@ setInterval(function () {
     }
 });
 
+var wave1_player = new CPlayer();
+wave1_player.init(wave_song_1);
+
+// Generate music...
+var wave1_done = false;
+setInterval(function () {
+    if (wave1_done) {
+      return;
+    }
+
+    wave1_done = wave1_player.generate() >= 1;
+
+    if (wave1_done) {
+      var t1 = new Date();
+      console.log("msc wave1 generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = wave1_player.createWave();
+      msc_wave1_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
 function play_music(type) {
     audio.pause();
     audio.currentTime = 0.0;
 
     if(type == "title") {
         console.log("title music");
+        audio.volume = 0.3;
         audio.src = msc_title_src;
     }
 
     if(type == "setup") {
         console.log("setup music");
+        audio.volume = 1.0;
         audio.src = msc_setup_src;
+    }
+
+    if(type == "wave1") {
+        console.log("wave music");
+        audio.volume = 1.0;
+        audio.src =  msc_wave1_src;
     }
 
     audio.play();
@@ -989,6 +1020,7 @@ function gameUpdate()
     }
 
     if(!gameStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+        snd_button_click.play();
         gameStarted = true;
 
         ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
@@ -1031,10 +1063,13 @@ function gameUpdate()
         
     } else if(!waveStarted && win && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
         // win state!
+        snd_button_click.play();
         newGame();
     } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+        snd_button_click.play();
         newGame();
     } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+        snd_button_click.play();
         newGame();
     }
 }
@@ -1084,6 +1119,8 @@ function startWave() {
     enemySpawnTimer = new Timer(3);
     friendlySpawnTimer = new Timer(0);
     snd_wave_start.play();
+
+    play_music("wave1");
 }
 
 function newGame() {

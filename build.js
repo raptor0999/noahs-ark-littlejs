@@ -15,6 +15,7 @@ const sourceFiles =
     'player-small.js',
     'title_song.js',
     'setup_song.js',
+    'wave_song_1.js',
     'game.js',
     // add your game's files here
 ];
