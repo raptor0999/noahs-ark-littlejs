@@ -19,6 +19,9 @@ let enemySize = 1.1;
 let enemySpawnTimeDefault = 2.0;
 
 let waterAmount = 0;
+let rainParticle;
+let rainRate = 0;
+let rainIncreaseRate = 500;
 
 let win = false;
 let winWave = 11;
@@ -715,7 +718,6 @@ class Water extends EngineObject {
 
     render() {
         let info = spriteAtlas.water.frame(this.animationFrame);
-        console.log(info.pos);
         this.tileInfo = info;
 
         // figure out what animation and then draw the frame
@@ -1108,6 +1110,8 @@ function startLevel() {
         spawnWaterObjects(waterAmount);
     }
 
+    rainRate += rainIncreaseRate;
+
     waveTimeDefault += 5.0;
     enemySpawnTimeDefault -= 0.1;
     noah.spawnersAllowed += 1;
@@ -1125,10 +1129,46 @@ function startLevel() {
     //setupPhaseTimer = new Timer(setupTimeDefault);
 
     resetAnimals();
+    stopRain();
 }
 
 function ending() {
 
+}
+
+function startRain(rate) {
+    rainParticle = new ParticleEmitter(
+  cameraPos, 0,    //position, angle
+  50,   // emitSize
+  0,    // emitTime
+  rate,  // emitRate
+  0, // emitConeAngle
+  tile(0, 16),  // tileIndex
+  new Color(0, 0.251, 1, 1),    // colorStartA
+  new Color(0, 0.251, 1, 1),  // colorStartB
+  new Color(0, 0, 0.502, 0.9),  // colorEndA
+  new Color(0, 0, 0.8, 0.8),  // colorEndB
+  1,  // particleTime
+  0.4, // sizeStart
+  0.2, // sizeEnd
+  -0.2, // speed
+  0,    // angleSpeed
+  0.92, // damping
+  0.71, // angleDamping
+  -9.8,    // gravityScale
+  0,    // particleConeAngle
+  0.1, // fadeRate
+  0.8,  // randomness
+  0,    // collideTiles
+  1,    // additive
+  1,    // randomColorLinear
+); // particle emitter
+}
+
+function stopRain() {
+    if(rainParticle instanceof ParticleEmitter) {
+        rainParticle.destroy();
+    }
 }
 
 function startWave() {
@@ -1142,6 +1182,7 @@ function startWave() {
     snd_wave_start.play();
 
     play_music("wave1");
+    startRain(rainRate);
 }
 
 function newGame() {
@@ -1255,6 +1296,9 @@ function gameRenderPost()
 {
     // called after objects are rendered
     // draw effects or hud that appear above all objects
+
+    
+
     if(paused) {
         // paused so draw not much
         drawRect(cameraPos, levelSize, rgb(0,0,0,0.6));
