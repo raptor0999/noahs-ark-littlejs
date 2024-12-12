@@ -1013,6 +1013,9 @@ function startLevel() {
     // establish upgrades to pick from
     upgrade1 = afterWaveUpgrade[randInt(afterWaveUpgrade.length)];
     upgrade2 = afterWaveUpgrade[randInt(afterWaveUpgrade.length)];
+    while(upgrade1 == upgrade2) {
+        upgrade2 = afterWaveUpgrade[randInt(afterWaveUpgrade.length)];
+    }
 
     //setupPhase = true;
     //setupPhaseTimer = new Timer(setupTimeDefault);
