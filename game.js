@@ -833,7 +833,7 @@ function gameUpdate()
             friendlyMod = friendlyModifierByWave[waveNumber-1];
         }
 
-        if(mouseWasPressed(1) && !noah.isCasting && noah.castTimer.elapsed()) {
+        if(mouseWasPressed(2) && !noah.isCasting && noah.castTimer.elapsed()) {
             noah.isCasting = true;
             noah.castDone = false;
             noah.currentFrame = 0;
@@ -879,7 +879,7 @@ function gameUpdate()
                 noah.target = mousePos;
             }
 
-            if(mouseWasPressed(1)) {
+            if(mouseWasPressed(2)) {
                 // let's make sure it is in a tree
                 let treeOverlapped = false;
                 for(var i=0;i<treeLayer.length;i++) {
@@ -891,24 +891,18 @@ function gameUpdate()
 
                 if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
                     spawners.push(new BirdNest(mousePos));
-                    snd_spawner_place.play();
-                }
-            }
-
-            if(mouseWasPressed(2)) {
-                // let's make sure it is NOT in a tree
-                let treeOverlapped = false;
-                for(var i=0;i<treeLayer.length;i++) {
-                    if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
-                        treeOverlapped = true;
-                        break;
-                    }
                 }
 
                 if(!treeOverlapped && spawners.length < noah.spawnersAllowed) {
                     spawners.push(new WolfDen(mousePos));
-                    snd_spawner_place.play();
                 }
+
+                if(spawners.length == noah.spawnersAllowed) {
+                    // go ahead and end the setup phase
+                    setupPhaseTimer = new Timer(2.0);
+                }
+
+                snd_spawner_place.play();
             }
         }
 
