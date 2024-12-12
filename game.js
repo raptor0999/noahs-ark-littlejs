@@ -517,6 +517,8 @@ class FriendlyAnimal extends Animal {
 class Wolf extends FriendlyAnimal {
     constructor(pos) {
         super(pos, spriteAtlas.wolf);
+
+        this.health = 2;
     }
 
     update() {
