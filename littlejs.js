@@ -2414,7 +2414,12 @@ class TileInfo
     frame(frame)
     {
         ASSERT(typeof frame == 'number');
-        return this.offset(vec2(frame*(this.size.x+this.padding*2), 0));
+        if(frame < 8) {
+            return this.offset(vec2(frame*(this.size.x+this.padding*2), 0));
+        } else {
+            return this.offset(vec2(frame%8*(this.size.x+this.padding*2), Math.trunc(frame/8)*(this.size.y+this.padding*2)));
+        }
+        
     }
 
     /** Returns the texture info for this tile

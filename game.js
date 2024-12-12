@@ -357,6 +357,7 @@ class Animal extends EngineObject {
 
         this.health = 1;
         this.speed = .04;
+        this.speed = rand(.04-.01, .04+.02);
         this.damage = 1;
 
         this.animationFrame = 0;
@@ -638,7 +639,7 @@ class Cardinal extends FriendlyAnimal {
     constructor(pos) {
         super(pos, getRandomBird());
 
-        this.speed = 0.06;
+        this.speed += 0.02;
         this.size = vec2(0.7, 0.7);
         this.drawSize = vec2(0.7, 0.7);
         this.drawOffset = vec2(0, 0.5);
@@ -696,9 +697,9 @@ class Water extends EngineObject {
 
         this.currentFrame = 0;
         this.frameOffset = 0;
-        this.maxFrames = 5;
+        this.maxFrames = 40;
         this.animationFrame = 0;
-        this.frameTime = 0.2;
+        this.frameTime = 0.1;
         this.frameTimer = new Timer(this.frameTime);
     }
 
@@ -709,7 +710,9 @@ class Water extends EngineObject {
     }
 
     render() {
-        this.tileInfo = spriteAtlas.water.frame(this.animationFrame);
+        let info = spriteAtlas.water.frame(this.animationFrame);
+        console.log(info.pos);
+        this.tileInfo = info;
 
         // figure out what animation and then draw the frame
         if(this.frameTimer.elapsed()) {
@@ -742,7 +745,6 @@ function findRandomPosWithoutWater() {
         let newVec = vec2(randInt(levelSize.x), randInt(levelSize.y));
 
         for(var i=0;i<waterObjects.length;i++) {
-            console.log("Water pos: " + waterObjects[i].pos);
             if(waterObjects[i].pos == newVec) {
                 noWaterFound = false;
             }
@@ -859,7 +861,7 @@ function gameInit()
         nest: tile(36,32),
         cave: tile(37,32),
         playerCast: new TileInfo(vec2(0,160), vec2(32,64)),
-        water: tile(56,32),
+        water: tile(0,32,2),
         bird1: tile(0,32,1),
         bird2: tile(4,32,1),
         bird3: tile(8,32,1),
@@ -1096,7 +1098,7 @@ function startLevel() {
         win = true;
     }
 
-    if (waveNumber > 1) {
+    if (waveNumber > 0) {
         waterAmount += 50;
         spawnWaterObjects(waterAmount);
     }
@@ -1353,4 +1355,4 @@ function gameRenderPost()
 
 ///////////////////////////////////////////////////////////////////////////////
 // Startup LittleJS Engine
-engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'animals.png']);
+engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'animals.png', 'water.png']);

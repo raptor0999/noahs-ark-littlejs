@@ -23,6 +23,7 @@ const dataFiles =
 [
     'tiles.png',
     'animals.png',
+    'water.png',
     // add your game's data files here
 ];
 
