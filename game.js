@@ -516,7 +516,7 @@ class FriendlyAnimal extends Animal {
 
 class Wolf extends FriendlyAnimal {
     constructor(pos) {
-        super(pos, spriteAtlas.wolf);
+        super(pos, getRandomAnimal());
 
         this.health = 2;
     }
@@ -555,9 +555,49 @@ class Wolf extends FriendlyAnimal {
     }
 }
 
+function getRandomBird() {
+    let num = randInt(5);
+
+    if(num == 0) {
+        return spriteAtlas.cardinal;
+    }
+    if(num == 1) {
+        return spriteAtlas.bird1;
+    }
+    if(num == 2) {
+        return spriteAtlas.bird2;
+    }
+    if(num == 3) {
+        return spriteAtlas.bird3;
+    }
+    if(num == 4) {
+        return spriteAtlas.bird4;
+    }
+}
+
+function getRandomAnimal() {
+    let num = randInt(5);
+
+    if(num == 0) {
+        return spriteAtlas.wolf;
+    }
+    if(num == 1) {
+        return spriteAtlas.animal1;
+    }
+    if(num == 2) {
+        return spriteAtlas.animal2;
+    }
+    if(num == 3) {
+        return spriteAtlas.animal3;
+    }
+    if(num == 4) {
+        return spriteAtlas.animal4;
+    }
+}
+
 class Cardinal extends FriendlyAnimal {
     constructor(pos) {
-        super(pos, spriteAtlas.cardinal);
+        super(pos, getRandomBird());
 
         this.speed = 0.06;
         this.size = vec2(0.7, 0.7);
@@ -781,6 +821,14 @@ function gameInit()
         cave: tile(37,32),
         playerCast: new TileInfo(vec2(0,160), vec2(32,64)),
         water: tile(56,32),
+        bird1: tile(0,32,1),
+        bird2: tile(4,32,1),
+        bird3: tile(8,32,1),
+        bird4: tile(12,32,1),
+        animal1: tile(16,32,1),
+        animal2: tile(20,32,1),
+        animal3: tile(24,32,1),
+        animal4: tile(28,32,1),
 
         // small tiles
         //gun:     tile(2,8),
@@ -1247,4 +1295,4 @@ function gameRenderPost()
 
 ///////////////////////////////////////////////////////////////////////////////
 // Startup LittleJS Engine
-engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'ark.png', 'grass.png']);
+engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'animals.png']);
