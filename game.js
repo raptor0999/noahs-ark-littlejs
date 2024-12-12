@@ -143,6 +143,14 @@ function play_music(type) {
     audio.play();
 }
 
+function toggle_music() {
+    if(audio.paused) {
+        audio.play();
+    } else {
+        audio.pause();
+    }
+}
+
 function stop_music(type) {
     audio.pause();
     audio.currentTime = 0.0;
@@ -899,7 +907,8 @@ function gameUpdate()
 {
     // called every frame at 60 frames per second
     // handle input and update the game state
-    if(waveStarted) {
+    if(!paused) {
+        if(waveStarted) {
         // do the wave!
         if (waveTimer.elapsed()) {
             waveFinished = true;
@@ -974,104 +983,109 @@ function gameUpdate()
                 
             }
         }*/
-    } else {
-        if(setupPhase) {
-            if(mouseWasPressed(0)) {
-                noah.target = mousePos;
-            }
-
-            if(mouseWasPressed(2)) {
-                // let's make sure it is in a tree
-                let treeOverlapped = false;
-                for(var i=0;i<treeLayer.length;i++) {
-                    if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
-                        treeOverlapped = true;
-                        break;
-                    }
-                }
-
-                if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
-                    spawners.push(new BirdNest(mousePos));
-                }
-
-                if(!treeOverlapped && spawners.length < noah.spawnersAllowed) {
-                    spawners.push(new WolfDen(mousePos));
-                }
-
-                if(spawners.length == noah.spawnersAllowed) {
-                    // go ahead and end the setup phase
-                    setupPhaseTimer = new Timer(2.0);
-                }
-
-                snd_spawner_place.play();
-            }
-        }
-
-        if(setupPhase && setupPhaseTimer.elapsed()) {
-            stop_music();
-            startWave();
-        }
-    }
-
-    if(waveFinished) {
-        resetAnimals();
-
-        startLevel();
-    }
-
-    if(!gameStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-        snd_button_click.play();
-        gameStarted = true;
-
-        ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
-        console.log("Ark made");
-
-        if(noah) {
-            noah.destroy();
-        }
-
-        noah = new Noah(vec2(levelSize.x/2, levelSize.y/2-5));
-        console.log("Noah made");
-    
-        startLevel();
-        console.log("Level started");
-    } else if(!waveStarted && mouseWasPressed(0) && !setupPhase && !win) {
-        // play title music
-        play_music("title");
-
-        if(waveNumber > 1) {
-            // upgrade 1 clicked
-            if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2))) {
-                grantUpgrade(upgrade1);
-                setupPhase = true;
-                setupPhaseTimer = new Timer(setupTimeDefault);
-            }
-
-            // upgrade 2 clicked
-            if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2))) {
-                grantUpgrade(upgrade2);
-                setupPhase = true;
-                setupPhaseTimer = new Timer(setupTimeDefault);
-            }
         } else {
-            if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-                setupPhase = true;
-                setupPhaseTimer = new Timer(setupTimeDefault);
-                play_music("setup");
+            if(setupPhase) {
+                if(mouseWasPressed(0)) {
+                    noah.target = mousePos;
+                }
+
+                if(mouseWasPressed(2)) {
+                    // let's make sure it is in a tree
+                    let treeOverlapped = false;
+                    for(var i=0;i<treeLayer.length;i++) {
+                        if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
+                            treeOverlapped = true;
+                            break;
+                        }
+                    }
+
+                    if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
+                        spawners.push(new BirdNest(mousePos));
+                    }
+
+                    if(!treeOverlapped && spawners.length < noah.spawnersAllowed) {
+                        spawners.push(new WolfDen(mousePos));
+                    }
+
+                    if(spawners.length == noah.spawnersAllowed) {
+                        // go ahead and end the setup phase
+                        setupPhaseTimer = new Timer(2.0);
+                    }
+
+                    snd_spawner_place.play();
+                }
+            }
+
+            if(setupPhase && setupPhaseTimer.elapsed()) {
+                stop_music();
+                startWave();
             }
         }
+
+        if(waveFinished) {
+            resetAnimals();
+
+            startLevel();
+        }
+
+        if(!gameStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+            snd_button_click.play();
+            gameStarted = true;
+
+            ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
+            console.log("Ark made");
+
+            if(noah) {
+                noah.destroy();
+            }
+
+            noah = new Noah(vec2(levelSize.x/2, levelSize.y/2-5));
+            console.log("Noah made");
         
-    } else if(!waveStarted && win && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-        // win state!
-        snd_button_click.play();
-        newGame();
-    } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-        snd_button_click.play();
-        newGame();
-    } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-        snd_button_click.play();
-        newGame();
+            startLevel();
+            console.log("Level started");
+        } else if(!waveStarted && mouseWasPressed(0) && !setupPhase && !win) {
+            // play title music
+            play_music("title");
+
+            if(waveNumber > 1) {
+                // upgrade 1 clicked
+                if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2))) {
+                    grantUpgrade(upgrade1);
+                    setupPhase = true;
+                    setupPhaseTimer = new Timer(setupTimeDefault);
+                }
+
+                // upgrade 2 clicked
+                if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2))) {
+                    grantUpgrade(upgrade2);
+                    setupPhase = true;
+                    setupPhaseTimer = new Timer(setupTimeDefault);
+                }
+            } else {
+                if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                    setupPhase = true;
+                    setupPhaseTimer = new Timer(setupTimeDefault);
+                    play_music("setup");
+                }
+            }
+            
+        } else if(!waveStarted && win && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+            // win state!
+            snd_button_click.play();
+            newGame();
+        } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+            snd_button_click.play();
+            newGame();
+        } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+            snd_button_click.play();
+            newGame();
+        }
+    } else {
+        // game paused, do nothing
     }
+    
+    
 }
 
 function startLevel() {
@@ -1171,6 +1185,10 @@ function gameUpdatePost()
 {
     // called after physics and objects are updated
     // setup camera and prepare for render
+    if(keyWasPressed('KeyP')) {
+        paused = !paused;
+        toggle_music();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1230,104 +1248,107 @@ function gameRenderPost()
 {
     // called after objects are rendered
     // draw effects or hud that appear above all objects
-    if (!gameStarted) {
-        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
-        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
-        drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
-        drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-        drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-    } else if (gameStarted && !waveStarted && !setupPhase) {
-        if (!ark) {
-            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
-            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-            drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
+    if(paused) {
+        // paused so draw not much
+        drawRect(cameraPos, levelSize, rgb(0,0,0,0.6));
+        drawTextScreen('PAUSED', mainCanvasSize.scale(.5), 80);
+    } else {
+        if (!gameStarted) {
+            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
+            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
+            drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
             drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-            drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-        } else {
-             if (win) {
-                // win state!
+            drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+        } else if (gameStarted && !waveStarted && !setupPhase) {
+            if (!ark) {
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-                drawTextScreen('You Win!', mainCanvasSize.scale(.5), 80);
+                drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
                 drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
                 drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-            } else if(waveNumber > 1) {
-                drawRect(cameraPos, vec2(21,14), rgb(0.9,0.9,0.9,1));
-                drawRect(cameraPos, vec2(20,13), rgb(0.1,0.1,0.1,1));
-                drawTextScreen('Enemies killed during Wave ' + (waveNumber-1) + ': ' + enemiesKilledInWave, mainCanvasSize.scale(.5).add(vec2(0,-160)), 30);
-                drawTextScreen('Total enemies killed this game: ' + totalEnemiesKilled, mainCanvasSize.scale(.5).add(vec2(0,-120)), 30);
-
-                // upgrade selection
-                drawRect(vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
-                drawTextScreen(upgrade1, mainCanvasSize.scale(.5).add(vec2(-125, 130)), 20);
-                drawRect(vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
-                drawTextScreen(upgrade2, mainCanvasSize.scale(.5).add(vec2(125, 130)), 20);
             } else {
+                 if (win) {
+                    // win state!
+                    drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+                    drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
+                    drawTextScreen('You Win!', mainCanvasSize.scale(.5), 80);
+                    drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
+                    drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+                } else if(waveNumber > 1) {
+                    drawRect(cameraPos, vec2(21,14), rgb(0.9,0.9,0.9,1));
+                    drawRect(cameraPos, vec2(20,13), rgb(0.1,0.1,0.1,1));
+                    drawTextScreen('Enemies killed during Wave ' + (waveNumber-1) + ': ' + enemiesKilledInWave, mainCanvasSize.scale(.5).add(vec2(0,-160)), 30);
+                    drawTextScreen('Total enemies killed this game: ' + totalEnemiesKilled, mainCanvasSize.scale(.5).add(vec2(0,-120)), 30);
+
+                    // upgrade selection
+                    drawRect(vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
+                    drawTextScreen(upgrade1, mainCanvasSize.scale(.5).add(vec2(-125, 130)), 20);
+                    drawRect(vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
+                    drawTextScreen(upgrade2, mainCanvasSize.scale(.5).add(vec2(125, 130)), 20);
+                } else {
+                    drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+                    drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
+
+                    drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
+                    drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+                }
+                
+                if(!win) {
+                    drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
+                }
+                
+            }
+        } else if (gameStarted && !waveStarted && setupPhase) {
+            if(setupPhaseTimer) {
+                drawRect(vec2(cameraPos.x, 22), vec2(14,2), rgb(0.1,0.1,0.1,0.4));
+                drawTextScreen('Spawners Placed: ' + spawners.length + '/' + noah.spawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
+
+                drawRect(vec2(cameraPos.x, 2), vec2(16,2), rgb(0.1,0.1,0.1,0.6));
+                drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
+            }
+
+            //drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
+        } else if (gameStarted && waveStarted) {
+            if (!ark) {
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-
+                drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
                 drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-                drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-            }
-            
-            if(!win) {
-                drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
-            }
-            
-        }
-    } else if (gameStarted && !waveStarted && setupPhase) {
-        if(setupPhaseTimer) {
-            drawRect(vec2(cameraPos.x, 22), vec2(14,2), rgb(0.1,0.1,0.1,0.4));
-            drawTextScreen('Spawners Placed: ' + spawners.length + '/' + noah.spawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
-
-            drawRect(vec2(cameraPos.x, 2), vec2(16,2), rgb(0.1,0.1,0.1,0.6));
-            drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
-        }
-
-        //drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
-    } else if (gameStarted && waveStarted) {
-        if (!ark) {
-            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
-            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-            drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
-            drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-            drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-        } else {
-            drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
-            drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 40), 30);
-            if(waveTimer) {
-                drawRect(vec2(cameraPos.x, 2), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
-                drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
-            }
-            if(enemySpawnTimer) {
-                drawRect(vec2(cameraPos.x+10, 2), vec2(9,2), rgb(0.1,0.1,0.1,0.4));
-                drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+320, mainCanvasSize.y-40), 20);
-            }
-            if(enemies.length > 0) {
-                drawEnemyHealth();
-            }
-        }
-
-        // draw spawn range
-        if(noah.showSpawnRange) {
-            // indicator green if in range and ready to spawn animal and red if out of
-            var spawnRangeColor = rgb(1,0,0,0.8);
-
-            let friendlyMod = 0;
-            if (waveNumber <= friendlyModifierByWave.length) {
-                friendlyMod = friendlyModifierByWave[waveNumber-1];
+                drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+            } else {
+                drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+                drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 40), 30);
+                if(waveTimer) {
+                    drawRect(vec2(cameraPos.x, 2), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+                    drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
+                }
+                if(enemySpawnTimer) {
+                    drawRect(vec2(cameraPos.x+10, 2), vec2(9,2), rgb(0.1,0.1,0.1,0.4));
+                    drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+320, mainCanvasSize.y-40), 20);
+                }
+                if(enemies.length > 0) {
+                    drawEnemyHealth();
+                }
             }
 
-            if(mousePos.distance(noah.pos) <= noah.spawnRange && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
-                spawnRangeColor = rgb(0,1,0,0.8)
-            } 
+            // draw spawn range
+            if(noah.showSpawnRange) {
+                // indicator green if in range and ready to spawn animal and red if out of
+                var spawnRangeColor = rgb(1,0,0,0.8);
 
-            drawRect(mousePos, vec2(0.5, 0.5), spawnRangeColor);
+                let friendlyMod = 0;
+                if (waveNumber <= friendlyModifierByWave.length) {
+                    friendlyMod = friendlyModifierByWave[waveNumber-1];
+                }
+
+                if(mousePos.distance(noah.pos) <= noah.spawnRange && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
+                    spawnRangeColor = rgb(0,1,0,0.8)
+                } 
+
+                drawRect(mousePos, vec2(0.5, 0.5), spawnRangeColor);
+            }
         }
     }
-
-
-    
 }
 
 ///////////////////////////////////////////////////////////////////////////////
