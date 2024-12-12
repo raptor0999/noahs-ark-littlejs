@@ -15,6 +15,7 @@ let totalEnemiesKilled, enemiesKilledInWave;
 let waterObjects = [];
 let setupTimeDefault = 20.0;
 let waveTimeDefault = 25.0;
+let enemySize = 1.1;
 let enemySpawnTimeDefault = 2.0;
 
 let waterAmount = 0;
@@ -30,8 +31,8 @@ const afterWaveUpgrade = ['Noah Atk Dmg+', 'Noah Atk Spd+', 'Noah Cast Dmg+', 'N
 let upgrade1 = '';
 let upgrade2 = '';
 
-const enemyHealthModifierByWave = [0,0,0,0,1,1,1,2,3];
-const friendlyModifierByWave = [0,0,1,1,2,2,2,3,4];
+const enemyHealthModifierByWave = [0,0,0,0,1,1,1,2,3,4];
+const friendlyModifierByWave = [0,0,1,1,2,2,2,3,3,3];
 
 const snd_button_click = new Sound([1,,397,.02,.06,.07,,3.4,,,,,,,,,.07,.86,.04]); // Pickup 41
 const snd_wave_upgrade = new Sound([0.5,,666,.05,.15,.41,,2.8,,,,,.03,,3,,,.8,.15,,971]); // Powerup 23
@@ -425,6 +426,9 @@ class Animal extends EngineObject {
 class EnemyAnimal extends Animal {
     constructor(pos, spriteRef) {
         super(pos, spriteRef);
+
+        this.size = vec2(enemySize);
+        this.drawSize = vec2(enemySize);
 
         this.id = randInt(32000);
 
@@ -1093,12 +1097,13 @@ function gameUpdate()
 function startLevel() {
     waveFinished = false;
     waveNumber += 1;
+    enemySize += 0.05;
 
     if (waveNumber > winWave) {
         win = true;
     }
 
-    if (waveNumber > 0) {
+    if (waveNumber > 1) {
         waterAmount += 50;
         spawnWaterObjects(waterAmount);
     }
