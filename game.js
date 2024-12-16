@@ -1013,7 +1013,7 @@ function gameUpdate()
                 }
 
                 if(mouseWasPressed(2)) {
-                    // let's make sure it is in a tree
+                    // let's see if it is in a tree
                     let treeOverlapped = false;
                     for(var i=0;i<treeLayer.length;i++) {
                         if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
@@ -1024,10 +1024,21 @@ function gameUpdate()
 
                     if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
                         spawners.push(new BirdNest(mousePos));
+                        snd_spawner_place.play();
                     }
 
-                    if(!treeOverlapped && spawners.length < noah.spawnersAllowed) {
+                    // let's see if we are in water
+                    let waterOverlapped = false;
+                    for(var i=0;i<waterObjects.length;i++) {
+                        if(isOverlapping(mousePos, vec2(0.5,0.5), waterObjects[i].pos, waterObjects[i].size)) {
+                            waterOverlapped = true;
+                            break;
+                        }
+                    }
+
+                    if(!waterOverlapped && !treeOverlapped && spawners.length < noah.spawnersAllowed) {
                         spawners.push(new WolfDen(mousePos));
+                        snd_spawner_place.play();
                     }
 
                     if(spawners.length == noah.spawnersAllowed) {
@@ -1035,7 +1046,6 @@ function gameUpdate()
                         setupPhaseTimer = new Timer(2.0);
                     }
 
-                    snd_spawner_place.play();
                 }
             }
 
@@ -1120,7 +1130,7 @@ function startLevel() {
         win = true;
     }
 
-    if (waveNumber > 1) {
+    if (waveNumber > 0) {
         waterAmount += 50;
         spawnWaterObjects(waterAmount);
     }
