@@ -926,13 +926,28 @@ function gameUpdate()
             // spawn enemyAnimal
             // pick a random spot outside of map bounds
             var spawnLocation;
+            var oneOrAnother = randInt(2);
 
             if(randInt(2)) {
                 // we will pick a random x coord and spawn above or below map bounds
-                spawnLocation = vec2(randInt(-1, levelSize.x+1), 1*randSign());
+                var theY;
+
+                if(oneOrAnother == 0) {
+                    theY = 0;
+                } else {
+                    theY = levelSize.y;
+                }
+                spawnLocation = vec2(randInt(0, levelSize.x+1), theY);
             } else {
-                // we will pick a random x coord and spawn above or below map bounds
-                spawnLocation = vec2(1*randSign(), randInt(-1, levelSize.y+1));
+                // we will pick a random y coord and spawn left or right of map bounds
+                var theX;
+
+                if(oneOrAnother == 0) {
+                    theX = 0;
+                } else {
+                    theX = levelSize.x;
+                }
+                spawnLocation = vec2(theX, randInt(0, levelSize.y+1));
             }
 
             if(randInt(2) == 0) {
