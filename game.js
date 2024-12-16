@@ -979,16 +979,29 @@ function gameUpdate()
             new ParticleEmitter(noah.castPoint, 0, 0.2, 0.6, 250, 3.14, tile(0, 16), new Color(1, 1, 0, 1), new Color(1, 0.502, 0.251, 1), new Color(1, 0, 0, 0.1), new Color(0.502, 0.251, 0.251, 0.1), 0.8, 0.1, 0.5, 0.15, 0.1, 1, 1, 0.1, 2.6, 0.05, 0.51, 0, 1, 1);
 
             // find enemies in cast radius and make them take damage
-            for (let i=0;i<enemies.length;i++) {
-                let enemyDistance = noah.castPoint.distance(enemies[i].pos);
+            while(true) {
+                var enemiesComplete = false;
 
-                if(enemyDistance <= noah.castRadius) {
-                    // this enemy is within the cast radius, lets f them up
-                    enemies[i].takeDamage(noah.castDamage);
-                    console.log("Distance from cast: " + enemyDistance);
+                for (let i=0;i<enemies.length;i++) {
+                    let enemyDistance = noah.castPoint.distance(enemies[i].pos);
+
+                    if(enemyDistance <= noah.castRadius) {
+                        // this enemy is within the cast radius, lets f them up
+                        enemies[i].takeDamage(noah.castDamage);
+                        console.log("Distance from cast: " + enemyDistance);
+                        break;
+                    }
+
+                    if(i == enemies.length-1) {
+                        enemiesComplete = true;
+                    }
+                }
+
+                if(enemiesComplete) {
+                    break;
                 }
             }
-
+            
             noah.castDone = true;
             noah.castTimer = new Timer(noah.castTimerDefault);
         }
@@ -1130,7 +1143,7 @@ function startLevel() {
         win = true;
     }
 
-    if (waveNumber > 0) {
+    if (waveNumber > 1) {
         waterAmount += 50;
         spawnWaterObjects(waterAmount);
     }
