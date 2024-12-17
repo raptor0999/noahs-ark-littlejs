@@ -13,6 +13,7 @@ let gameStarted, spriteAtlas, setupPhase, setupPhaseTimer, waveNumber, waveStart
 let grassTiles, treeTiles, grassLayer, treeLayer;
 let totalEnemiesKilled, enemiesKilledInWave;
 let waterObjects = [];
+let endingObjects = [];
 let setupTimeDefault = 20.0;
 let waveTimeDefault = 25.0;
 let enemySize = 1.1;
@@ -25,6 +26,7 @@ let rainIncreaseRate = 500;
 
 let win = false;
 let winWave = 11;
+let ending = false;
 
 const levelSize = vec2(42, 24);
 const friendlySpawnTimeDefault = 2.0;
@@ -240,6 +242,10 @@ class Noah extends EngineObject {
 
         this.renderOrder = 1;
 
+        if(ending) {
+            this.renderOrder = 7;
+        }
+
         super.update();
     }
 
@@ -302,14 +308,52 @@ class Noah extends EngineObject {
         }
 
         // draw shadow
-        drawTile(vec2(this.pos.x, this.pos.y-0.2), vec2(0.8,0.8), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+        if(!ending) {
+            drawTile(vec2(this.pos.x, this.pos.y-0.2), vec2(0.8,0.8), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+        }
         // draw character
         drawTile(this.pos, this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
         // draw cast icon
         drawTile(vec2(this.pos.x+0.4, this.pos.y+0.2), vec2(0.3,0.3), spriteAtlas.circle, rgb(0,0,1,(this.castTimerDefault+this.castTimer.get())/10*0.7), this.angle, this.mirror);
-        
     }
 }
+
+class Rainbow extends EngineObject {
+    constructor(pos) {
+        super(pos, vec2(32,32), spriteAtlas.rainbow);
+
+        this.alpha = 0.0
+        this.color = rgb(1,1,1,this.alpha);
+        this.doveSpawnTimer = new Timer(0.0);
+        this.doveSpawnTime = 0.6;
+
+    }
+
+    update() {
+        this.renderOrder = 8;
+
+        if(this.alpha < 0.5) {
+            this.alpha += 0.002;
+            this.color = rgb(1,1,1,this.alpha);
+        }
+
+        if(this.alpha > 0.3 && this.doveSpawnTimer.elapsed()) {
+            endingObjects.push(new Dove(ark.pos));
+            this.doveSpawnTimer = new Timer(this.doveSpawnTime);
+        }
+
+        super.update();
+    }
+
+    render() {
+        // draw shadow
+        //drawTile(vec2(this.pos.x, this.pos.y-0.4), vec2(8,4), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+
+        super.render();
+    }
+}
+
+
 
 class Ark extends EngineObject {
     constructor(pos) {
@@ -319,6 +363,12 @@ class Ark extends EngineObject {
 
         this.health = 10;
         this.damage = 10;
+
+        this.shiftTimer = new Timer(0.0);
+        this.shiftTime = 1.0;
+
+        this.endingWindowTimer = new Timer(0.0);
+        this.endingWindowTime = 10.0;
     }
 
     collideWithObject(o) {
@@ -344,12 +394,44 @@ class Ark extends EngineObject {
     update() {
         this.renderOrder = 5;
 
+        if (ending) {
+            // float around
+            if(this.shiftTimer.elapsed()) {
+                this.shiftTimer = new Timer(this.shiftTime);
+
+                this.velocity = vec2(randSign()*rand()/10, randSign()*rand()/10);
+            } else {
+                // stutter just a bit
+                //this.pos += randSign()*randVector(1)/30;
+            }
+
+            // don't float off screen
+            if(this.pos.x - this.size.x/2 < 0) {
+                this.velocity = vec2(0,0);
+                this.pos.x = this.size.x/2;
+            }
+            if(this.pos.x + this.size.x/2 > levelSize.x) {
+                this.velocity = vec2(0,0);
+                this.pos.x = levelSize.x - this.size.x/2;
+            }
+            if(this.pos.y - this.size.y/2 < 0) {
+                this.velocity = vec2(0,0);
+                this.pos.y = this.size.y/2;
+            }
+            if(this.pos.y + this.size.y/2 > levelSize.y) {
+                this.velocity = vec2(0,0);
+                this.pos.y = levelSize.y - this.size.y/2;
+            }
+        }
+
         super.update();
     }
 
     render() {
         // draw shadow
-        drawTile(vec2(this.pos.x, this.pos.y-0.4), vec2(8,4), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+        if(!ending) {
+            drawTile(vec2(this.pos.x, this.pos.y-0.4), vec2(8,4), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+        }
 
         super.render();
     }
@@ -380,6 +462,11 @@ class Animal extends EngineObject {
     update() {
         if(this.state == 'idle') {
             // idle
+            if(ending) {
+                // move anyway
+                this.frameOffset = this.moveAnimationOffset;
+                this.maxFrames = this.moveAnimationFrames;
+            }
         } else if(this.state == 'moving') {
             this.frameOffset = this.moveAnimationOffset;
             this.maxFrames = this.moveAnimationFrames;
@@ -391,6 +478,10 @@ class Animal extends EngineObject {
             this.state = 'idle';
         } else {
             this.state = 'moving';
+        }
+
+        if(ending) {
+            this.renderOrder = 6;
         }
 
         super.update();
@@ -423,6 +514,39 @@ class Animal extends EngineObject {
         drawTile(vec2(this.pos.x, this.pos.y-0.2), this.drawSize, spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
 
         drawTile(this.pos.add(this.drawOffset), this.drawSize, this.tileInfo, this.color, this.angle, this.mirror);
+    }
+}
+
+class Dove extends Animal {
+    constructor(pos) {
+        super(pos, spriteAtlas.dove);
+
+        this.size = vec2(0.7, 0.7);
+        this.drawSize = vec2(0.7, 0.7);
+        this.drawOffset = vec2(0, 0.5);
+
+        this.velocity = vec2(randSign()*rand()/5, randSign()*rand()/5);
+    }
+
+    update() {
+        this.renderOrder = 5;
+
+        if(ending) {
+            this.renderOrder = 6;
+        }
+
+        if(this.pos.x < 0 || this.pos.x > levelSize.x && this.pos.y < 0 || this.pos.y > levelSize.y) {
+            this.destroy();
+        }
+
+        super.update();
+    }
+
+    render() {
+        // draw shadow
+        //drawTile(vec2(this.pos.x, this.pos.y-0.4), vec2(8,4), spriteAtlas.shadow, rgb(1,1,1,0.6), this.angle, this.mirror);
+
+        super.render();
     }
 }
 
@@ -876,6 +1000,8 @@ function gameInit()
         animal2: tile(20,32,1),
         animal3: tile(24,32,1),
         animal4: tile(28,32,1),
+        dove: tile(32,32,1),
+        rainbow: tile(0,256,3),
 
         // small tiles
         //gun:     tile(2,8),
@@ -905,7 +1031,7 @@ function gameInit()
     enemies = [];
     spawners = [];
 
-    newGame();
+    
     
     cameraPos = levelSize.scale(.5);
 }
@@ -916,217 +1042,216 @@ function gameUpdate()
     // called every frame at 60 frames per second
     // handle input and update the game state
     if(!paused) {
-        if(waveStarted) {
-        // do the wave!
-        if (waveTimer.elapsed()) {
-            waveFinished = true;
-        }
-
-        if(enemySpawnTimer.elapsed()) {
-            // spawn enemyAnimal
-            // pick a random spot outside of map bounds
-            var spawnLocation;
-            var oneOrAnother = randInt(2);
-
-            if(randInt(2)) {
-                // we will pick a random x coord and spawn above or below map bounds
-                var theY;
-
-                if(oneOrAnother == 0) {
-                    theY = 0;
-                } else {
-                    theY = levelSize.y;
-                }
-                spawnLocation = vec2(randInt(0, levelSize.x+1), theY);
-            } else {
-                // we will pick a random y coord and spawn left or right of map bounds
-                var theX;
-
-                if(oneOrAnother == 0) {
-                    theX = 0;
-                } else {
-                    theX = levelSize.x;
-                }
-                spawnLocation = vec2(theX, randInt(0, levelSize.y+1));
+        if(ending) {
+            
+        } else {
+            if(waveStarted) {
+            // do the wave!
+            if (waveTimer.elapsed()) {
+                waveFinished = true;
             }
 
-            if(randInt(2) == 0) {
-                enemies.push(new Boar(spawnLocation));
-            } else {
-                enemies.push(new Skunk(spawnLocation));
+            if(enemySpawnTimer.elapsed()) {
+                // spawn enemyAnimal
+                // pick a random spot outside of map bounds
+                var spawnLocation;
+                var oneOrAnother = randInt(2);
+
+                if(randInt(2)) {
+                    // we will pick a random x coord and spawn above or below map bounds
+                    var theY;
+
+                    if(oneOrAnother == 0) {
+                        theY = 0;
+                    } else {
+                        theY = levelSize.y;
+                    }
+                    spawnLocation = vec2(randInt(0, levelSize.x+1), theY);
+                } else {
+                    // we will pick a random y coord and spawn left or right of map bounds
+                    var theX;
+
+                    if(oneOrAnother == 0) {
+                        theX = 0;
+                    } else {
+                        theX = levelSize.x;
+                    }
+                    spawnLocation = vec2(theX, randInt(0, levelSize.y+1));
+                }
+
+                if(randInt(2) == 0) {
+                    enemies.push(new Boar(spawnLocation));
+                } else {
+                    enemies.push(new Skunk(spawnLocation));
+                }
             }
-        }
 
-        if(mouseWasPressed(0)) {
-            noah.target = mousePos;
-        }
+            if(mouseWasPressed(0)) {
+                noah.target = mousePos;
+            }
 
-        let friendlyMod = 0;
-        if (waveNumber <= friendlyModifierByWave.length) {
-            friendlyMod = friendlyModifierByWave[waveNumber-1];
-        }
+            let friendlyMod = 0;
+            if (waveNumber <= friendlyModifierByWave.length) {
+                friendlyMod = friendlyModifierByWave[waveNumber-1];
+            }
 
-        if(mouseWasPressed(2) && !noah.isCasting && noah.castTimer.elapsed()) {
-            noah.isCasting = true;
-            noah.castDone = false;
-            noah.currentFrame = 0;
-            snd_noah_cast.play();
-            noah.castPoint = mousePos;
-        }
+            if(mouseWasPressed(2) && !noah.isCasting && noah.castTimer.elapsed()) {
+                noah.isCasting = true;
+                noah.castDone = false;
+                noah.currentFrame = 0;
+                snd_noah_cast.play();
+                noah.castPoint = mousePos;
+            }
 
-        if(noah.isCasting && noah.currentFrame == 5 && !noah.castDone) {
-            snd_noah_cast_explosion.play();
-            new ParticleEmitter(noah.castPoint, 0, 0.2, 0.6, 250, 3.14, tile(0, 16), new Color(1, 1, 0, 1), new Color(1, 0.502, 0.251, 1), new Color(1, 0, 0, 0.1), new Color(0.502, 0.251, 0.251, 0.1), 0.8, 0.1, 0.5, 0.15, 0.1, 1, 1, 0.1, 2.6, 0.05, 0.51, 0, 1, 1);
+            if(noah.isCasting && noah.currentFrame == 5 && !noah.castDone) {
+                snd_noah_cast_explosion.play();
+                new ParticleEmitter(noah.castPoint, 0, 0.2, 0.6, 250, 3.14, tile(0, 16), new Color(1, 1, 0, 1), new Color(1, 0.502, 0.251, 1), new Color(1, 0, 0, 0.1), new Color(0.502, 0.251, 0.251, 0.1), 0.8, 0.1, 0.5, 0.15, 0.1, 1, 1, 0.1, 2.6, 0.05, 0.51, 0, 1, 1);
 
-            // find enemies in cast radius and make them take damage
-            while(true) {
-                var enemiesComplete = false;
+                // find enemies in cast radius and make them take damage
+                while(true) {
+                    var enemiesComplete = false;
 
-                for (let i=0;i<enemies.length;i++) {
-                    let enemyDistance = noah.castPoint.distance(enemies[i].pos);
+                    for (let i=0;i<enemies.length;i++) {
+                        let enemyDistance = noah.castPoint.distance(enemies[i].pos);
 
-                    if(enemyDistance <= noah.castRadius) {
-                        // this enemy is within the cast radius, lets f them up
-                        enemies[i].takeDamage(noah.castDamage);
-                        console.log("Distance from cast: " + enemyDistance);
+                        if(enemyDistance <= noah.castRadius) {
+                            // this enemy is within the cast radius, lets f them up
+                            enemies[i].takeDamage(noah.castDamage);
+                            console.log("Distance from cast: " + enemyDistance);
+                            break;
+                        }
+
+                        if(i == enemies.length-1) {
+                            enemiesComplete = true;
+                        }
+                    }
+
+                    if(enemiesComplete) {
                         break;
                     }
-
-                    if(i == enemies.length-1) {
-                        enemiesComplete = true;
-                    }
-                }
-
-                if(enemiesComplete) {
-                    break;
-                }
-            }
-            
-            noah.castDone = true;
-            noah.castTimer = new Timer(noah.castTimerDefault);
-        }
-
-        /*if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
-            // spawn friendlyAnimal if within spawn range
-            console.log("Distance from Noah: " + mousePos.distance(noah.pos));
-
-            if(mousePos.distance(noah.pos) <= noah.spawnRange) {
-                if(randInt(2) == 0) {
-                    friendlies.push(new Cardinal(mousePos));
-                } else {
-                    friendlies.push(new Wolf(mousePos));
                 }
                 
-            }
-        }*/
-        } else {
-            if(setupPhase) {
-                if(mouseWasPressed(0)) {
-                    noah.target = mousePos;
-                }
-
-                if(mouseWasPressed(2)) {
-                    // let's see if it is in a tree
-                    let treeOverlapped = false;
-                    for(var i=0;i<treeLayer.length;i++) {
-                        if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
-                            treeOverlapped = true;
-                            break;
-                        }
-                    }
-
-                    if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
-                        spawners.push(new BirdNest(mousePos));
-                        snd_spawner_place.play();
-                    }
-
-                    // let's see if we are in water
-                    let waterOverlapped = false;
-                    for(var i=0;i<waterObjects.length;i++) {
-                        if(isOverlapping(mousePos, vec2(0.5,0.5), waterObjects[i].pos, waterObjects[i].size)) {
-                            waterOverlapped = true;
-                            break;
-                        }
-                    }
-
-                    if(!waterOverlapped && !treeOverlapped && spawners.length < noah.spawnersAllowed) {
-                        spawners.push(new WolfDen(mousePos));
-                        snd_spawner_place.play();
-                    }
-
-                    if(spawners.length == noah.spawnersAllowed) {
-                        // go ahead and end the setup phase
-                        setupPhaseTimer = new Timer(2.0);
-                    }
-
-                }
+                noah.castDone = true;
+                noah.castTimer = new Timer(noah.castTimerDefault);
             }
 
-            if(setupPhase && setupPhaseTimer.elapsed()) {
-                stop_music();
-                startWave();
-            }
-        }
+            /*if(mouseWasPressed(2) && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
+                // spawn friendlyAnimal if within spawn range
+                console.log("Distance from Noah: " + mousePos.distance(noah.pos));
 
-        if(waveFinished) {
-            resetAnimals();
-
-            startLevel();
-        }
-
-        if(!gameStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-            snd_button_click.play();
-            gameStarted = true;
-
-            ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
-            console.log("Ark made");
-
-            if(noah) {
-                noah.destroy();
-            }
-
-            noah = new Noah(vec2(levelSize.x/2, levelSize.y/2-5));
-            console.log("Noah made");
-        
-            startLevel();
-            console.log("Level started");
-        } else if(!waveStarted && mouseWasPressed(0) && !setupPhase && !win) {
-            // play title music
-            play_music("title");
-
-            if(waveNumber > 1) {
-                // upgrade 1 clicked
-                if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2))) {
-                    grantUpgrade(upgrade1);
-                    setupPhase = true;
-                    setupPhaseTimer = new Timer(setupTimeDefault);
+                if(mousePos.distance(noah.pos) <= noah.spawnRange) {
+                    if(randInt(2) == 0) {
+                        friendlies.push(new Cardinal(mousePos));
+                    } else {
+                        friendlies.push(new Wolf(mousePos));
+                    }
+                    
                 }
-
-                // upgrade 2 clicked
-                if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2))) {
-                    grantUpgrade(upgrade2);
-                    setupPhase = true;
-                    setupPhaseTimer = new Timer(setupTimeDefault);
-                }
+            }*/
             } else {
-                if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-                    setupPhase = true;
-                    setupPhaseTimer = new Timer(setupTimeDefault);
-                    play_music("setup");
+                if(setupPhase) {
+                    if(mouseWasPressed(0)) {
+                        noah.target = mousePos;
+                    }
+
+                    if(mouseWasPressed(2)) {
+                        // let's see if it is in a tree
+                        let treeOverlapped = false;
+                        for(var i=0;i<treeLayer.length;i++) {
+                            if(isOverlapping(mousePos, vec2(0.5,0.5), treeLayer[i].pos, treeLayer[i].size)) {
+                                treeOverlapped = true;
+                                break;
+                            }
+                        }
+
+                        if(treeOverlapped && spawners.length < noah.spawnersAllowed) {
+                            spawners.push(new BirdNest(mousePos));
+                            snd_spawner_place.play();
+                        }
+
+                        // let's see if we are in water
+                        let waterOverlapped = false;
+                        for(var i=0;i<waterObjects.length;i++) {
+                            if(isOverlapping(mousePos, vec2(0.5,0.5), waterObjects[i].pos, waterObjects[i].size)) {
+                                waterOverlapped = true;
+                                break;
+                            }
+                        }
+
+                        if(!waterOverlapped && !treeOverlapped && spawners.length < noah.spawnersAllowed) {
+                            spawners.push(new WolfDen(mousePos));
+                            snd_spawner_place.play();
+                        }
+
+                        if(spawners.length == noah.spawnersAllowed) {
+                            // go ahead and end the setup phase
+                            setupPhaseTimer = new Timer(2.0);
+                        }
+
+                    }
+                }
+
+                if(setupPhase && setupPhaseTimer.elapsed()) {
+                    stop_music();
+                    startWave();
                 }
             }
+
+            if(waveFinished) {
+                resetAnimals();
+
+                startLevel();
+            }
+
+            if(!gameStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                newGame();
+
+                snd_button_click.play();
+                gameStarted = true;
+
+                
             
-        } else if(!waveStarted && win && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-            // win state!
-            snd_button_click.play();
-            newGame();
-        } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-            snd_button_click.play();
-            newGame();
-        } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
-            snd_button_click.play();
-            newGame();
+                startLevel();
+                console.log("Level started");
+            } else if(!waveStarted && mouseWasPressed(0) && !setupPhase && !win) {
+                // play title music
+                play_music("title");
+
+                if(waveNumber > 1) {
+                    // upgrade 1 clicked
+                    if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2))) {
+                        grantUpgrade(upgrade1);
+                        setupPhase = true;
+                        setupPhaseTimer = new Timer(setupTimeDefault);
+                    }
+
+                    // upgrade 2 clicked
+                    if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2))) {
+                        grantUpgrade(upgrade2);
+                        setupPhase = true;
+                        setupPhaseTimer = new Timer(setupTimeDefault);
+                    }
+                } else {
+                    if(isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                        setupPhase = true;
+                        setupPhaseTimer = new Timer(setupTimeDefault);
+                        play_music("setup");
+                    }
+                }
+                
+            } else if(!waveStarted && win && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                // win state!
+                snd_button_click.play();
+                newGame();
+            } else if(gameStarted && waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                snd_button_click.play();
+                newGame();
+            } else if(gameStarted && !waveStarted && !ark && mouseWasPressed(0) && isOverlapping(mousePos, vec2(0.1,0.1), vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1))) {
+                snd_button_click.play();
+                newGame();
+            }
         }
+        
     } else {
         // game paused, do nothing
     }
@@ -1140,7 +1265,7 @@ function startLevel() {
     enemySize += 0.05;
 
     if (waveNumber > winWave) {
-        win = true;
+        startEnding();
     }
 
     if (waveNumber > 1) {
@@ -1170,8 +1295,48 @@ function startLevel() {
     stopRain();
 }
 
-function ending() {
+function startEnding() {
+    resetAnimals();
+    stopRain();
 
+    // for testing make sure that ground is covered with water
+    for(var x=0;x<levelSize.x;x+=1) {
+        for(var y=0;y<levelSize.y;y+=1) {
+            endingObjects.push(new Water(vec2(x,y)));
+        }
+    }
+
+    endingObjects.push(new Rainbow(cameraPos.add(vec2(0,2))));
+
+    //spawn pairs of animals
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal1), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal1), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal2), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal2), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal3), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal3), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal4), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.animal4), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird1), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird1), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird2), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird2), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird3), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird3), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird4), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+    ark.addChild(new FriendlyAnimal(ark.pos, spriteAtlas.bird4), vec2(randSign()*randInt(ark.size.x/2), randSign()*randInt(ark.size.y/2)));
+
+    noah.pos = ark.pos;
+
+    ark.endingWindowTimer = new Timer(ark.endingWindowTime);
+    ending = true;
 }
 
 function startRain(rate) {
@@ -1225,7 +1390,23 @@ function startWave() {
 
 function newGame() {
     win = false;
-    ark = false;
+    ending = false;
+
+    if(ark) {
+        ark.destroy();
+    }
+
+    ark = new Ark(vec2(levelSize.x/2, levelSize.y/2));
+    console.log("Ark made");
+
+    if(noah) {
+        noah.destroy();
+    }
+
+    noah = new Noah(vec2(levelSize.x/2, levelSize.y/2-5));
+    console.log("Noah made");
+
+    resetEnding();
     resetAnimals();
     resetWater();
 
@@ -1233,6 +1414,7 @@ function newGame() {
     enemiesKilledInWave = 0;
     waveStarted = false;
     gameStarted = false;
+    setupPhase = false;
     waveNumber = 0;
     waveTimeDefault = 25.0;
     enemySpawnTimeDefault = 2.0;
@@ -1240,6 +1422,14 @@ function newGame() {
     upgrade2 = '';
 
     play_music("title");
+}
+
+function resetEnding() {
+    for (let i=0;i<endingObjects.length;i++) {
+        endingObjects[i].destroy();
+    }
+
+    endingObjects = [];
 }
 
 function resetAnimals() {
@@ -1274,6 +1464,10 @@ function gameUpdatePost()
     if(keyWasPressed('KeyP')) {
         paused = !paused;
         toggle_music();
+    }
+
+    if(keyWasPressed('KeyE')) {
+        startEnding();
     }
 }
 
@@ -1342,104 +1536,116 @@ function gameRenderPost()
         drawRect(cameraPos, levelSize, rgb(0,0,0,0.6));
         drawTextScreen('PAUSED', mainCanvasSize.scale(.5), 80);
     } else {
-        if (!gameStarted) {
-            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
-            drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
-            drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
-            drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-            drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-        } else if (gameStarted && !waveStarted && !setupPhase) {
-            if (!ark) {
-                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
-                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-                drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
+        if (ending) {
+            if(ark.endingWindowTimer.elapsed()) {
+                // win state!
+                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,0.6));
+                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,0.6));
+                drawTextScreen('You Win!', mainCanvasSize.scale(.5), 80, rgb(1,1,1,1));
+                drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,0.6));
+                drawTextScreen('Refresh to play again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20, rgb(1,1,1,1));
+            }
+        } else {
+            if (!gameStarted) {
+                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
+                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
+                drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
                 drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-                drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-            } else {
-                 if (win) {
-                    // win state!
+                drawTextScreen('Click to Start!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+            } else if (gameStarted && !waveStarted && !setupPhase) {
+                if (!ark) {
                     drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
                     drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-                    drawTextScreen('You Win!', mainCanvasSize.scale(.5), 80);
+                    drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
                     drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
                     drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-                } else if(waveNumber > 1) {
-                    drawRect(cameraPos, vec2(21,14), rgb(0.9,0.9,0.9,1));
-                    drawRect(cameraPos, vec2(20,13), rgb(0.1,0.1,0.1,1));
-                    drawTextScreen('Enemies killed during Wave ' + (waveNumber-1) + ': ' + enemiesKilledInWave, mainCanvasSize.scale(.5).add(vec2(0,-160)), 30);
-                    drawTextScreen('Total enemies killed this game: ' + totalEnemiesKilled, mainCanvasSize.scale(.5).add(vec2(0,-120)), 30);
-
-                    // upgrade selection
-                    drawRect(vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
-                    drawTextScreen(upgrade1, mainCanvasSize.scale(.5).add(vec2(-125, 130)), 20);
-                    drawRect(vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
-                    drawTextScreen(upgrade2, mainCanvasSize.scale(.5).add(vec2(125, 130)), 20);
                 } else {
+                     if (win) {
+                        // win state!
+                        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+                        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
+                        drawTextScreen('You Win!', mainCanvasSize.scale(.5), 80);
+                        drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
+                        drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+                    } else if(waveNumber > 1) {
+                        drawRect(cameraPos, vec2(21,14), rgb(0.9,0.9,0.9,1));
+                        drawRect(cameraPos, vec2(20,13), rgb(0.1,0.1,0.1,1));
+                        drawTextScreen('Enemies killed during Wave ' + (waveNumber-1) + ': ' + enemiesKilledInWave, mainCanvasSize.scale(.5).add(vec2(0,-160)), 30);
+                        drawTextScreen('Total enemies killed this game: ' + totalEnemiesKilled, mainCanvasSize.scale(.5).add(vec2(0,-120)), 30);
+
+                        // upgrade selection
+                        drawRect(vec2(cameraPos.x-4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
+                        drawTextScreen(upgrade1, mainCanvasSize.scale(.5).add(vec2(-125, 130)), 20);
+                        drawRect(vec2(cameraPos.x+4, cameraPos.y-4), vec2(7,2), rgb(0.5,0.5,0.5,1));
+                        drawTextScreen(upgrade2, mainCanvasSize.scale(.5).add(vec2(125, 130)), 20);
+                    } else {
+                        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
+                        drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
+
+                        drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
+                        drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+                    }
+                    
+                    if(!win) {
+                        drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
+                    }
+                    
+                }
+            } else if (gameStarted && !waveStarted && setupPhase) {
+                if(setupPhaseTimer) {
+                    drawRect(vec2(cameraPos.x, 22), vec2(14,2), rgb(0.1,0.1,0.1,0.4));
+                    drawTextScreen('Spawners Placed: ' + spawners.length + '/' + noah.spawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
+
+                    drawRect(vec2(cameraPos.x, 2), vec2(16,2), rgb(0.1,0.1,0.1,0.6));
+                    drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
+                }
+
+                //drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
+            } else if (gameStarted && waveStarted) {
+                if (!ark) {
                     drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
                     drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-
+                    drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
                     drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-                    drawTextScreen('Click to start setup phase!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-                }
-                
-                if(!win) {
-                    drawTextScreen('Wave ' + waveNumber, mainCanvasSize.scale(.5), 80);
-                }
-                
-            }
-        } else if (gameStarted && !waveStarted && setupPhase) {
-            if(setupPhaseTimer) {
-                drawRect(vec2(cameraPos.x, 22), vec2(14,2), rgb(0.1,0.1,0.1,0.4));
-                drawTextScreen('Spawners Placed: ' + spawners.length + '/' + noah.spawnersAllowed, vec2(mainCanvasSize.x/2, 40), 30);
-
-                drawRect(vec2(cameraPos.x, 2), vec2(16,2), rgb(0.1,0.1,0.1,0.6));
-                drawTextScreen('Setup Time Remaining: ' + formatTime(abs(setupPhaseTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
-            }
-
-            //drawRect(mousePos, vec2(0.5, 0.5), rgb(0,1,0,0.8));
-        } else if (gameStarted && waveStarted) {
-            if (!ark) {
-                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,1));
-                drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,1));
-                drawTextScreen('You Lose!', mainCanvasSize.scale(.5), 80);
-                drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
-                drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
-            } else {
-                drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
-                drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 40), 30);
-                if(waveTimer) {
-                    drawRect(vec2(cameraPos.x, 2), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
-                    drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
-                }
-                if(enemySpawnTimer) {
-                    drawRect(vec2(cameraPos.x+10, 2), vec2(9,2), rgb(0.1,0.1,0.1,0.4));
-                    drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+320, mainCanvasSize.y-40), 20);
-                }
-                if(enemies.length > 0) {
-                    drawEnemyHealth();
-                }
-            }
-
-            // draw spawn range
-            if(noah.showSpawnRange) {
-                // indicator green if in range and ready to spawn animal and red if out of
-                var spawnRangeColor = rgb(1,0,0,0.8);
-
-                let friendlyMod = 0;
-                if (waveNumber <= friendlyModifierByWave.length) {
-                    friendlyMod = friendlyModifierByWave[waveNumber-1];
+                    drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
+                } else {
+                    drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+                    drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 40), 30);
+                    if(waveTimer) {
+                        drawRect(vec2(cameraPos.x, 2), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+                        drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);
+                    }
+                    if(enemySpawnTimer) {
+                        drawRect(vec2(cameraPos.x+10, 2), vec2(9,2), rgb(0.1,0.1,0.1,0.4));
+                        drawTextScreen('Enemy Spawning In: ' + formatTime(abs(enemySpawnTimer.get())), vec2(mainCanvasSize.x/2+320, mainCanvasSize.y-40), 20);
+                    }
+                    if(enemies.length > 0) {
+                        drawEnemyHealth();
+                    }
                 }
 
-                if(mousePos.distance(noah.pos) <= noah.spawnRange && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
-                    spawnRangeColor = rgb(0,1,0,0.8)
-                } 
+                // draw spawn range
+                if(noah.showSpawnRange) {
+                    // indicator green if in range and ready to spawn animal and red if out of
+                    var spawnRangeColor = rgb(1,0,0,0.8);
 
-                drawRect(mousePos, vec2(0.5, 0.5), spawnRangeColor);
+                    let friendlyMod = 0;
+                    if (waveNumber <= friendlyModifierByWave.length) {
+                        friendlyMod = friendlyModifierByWave[waveNumber-1];
+                    }
+
+                    if(mousePos.distance(noah.pos) <= noah.spawnRange && friendlySpawnTimer.elapsed() && friendlies.length < maxFriendliesAllowed + friendlyMod) {
+                        spawnRangeColor = rgb(0,1,0,0.8)
+                    } 
+
+                    drawRect(mousePos, vec2(0.5, 0.5), spawnRangeColor);
+                }
             }
         }
+        
     }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Startup LittleJS Engine
-engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'animals.png', 'water.png']);
+engineInit(gameInit, gameUpdate, gameUpdatePost, gameRender, gameRenderPost, ['tiles.png', 'animals.png', 'water.png', 'rainbow.png']);
