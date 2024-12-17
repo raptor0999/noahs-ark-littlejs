@@ -1116,17 +1116,19 @@ function gameUpdate()
 
                         if(enemyDistance <= noah.castRadius) {
                             // this enemy is within the cast radius, lets f them up
-                            enemies[i].takeDamage(noah.castDamage);
-                            console.log("Distance from cast: " + enemyDistance);
-                            break;
+                            if(enemies[i] instanceof EnemyAnimal) {
+                                enemies[i].takeDamage(noah.castDamage);
+                                console.log("Distance from cast: " + enemyDistance);
+                                break;
+                            }
                         }
 
-                        if(i == enemies.length-1) {
+                        if(i == enemies.length-1 || enemies.length == 0 || i >= enemies.length) {
                             enemiesComplete = true;
                         }
                     }
 
-                    if(enemiesComplete) {
+                    if(enemiesComplete || enemies.length < 1) {
                         break;
                     }
                 }
