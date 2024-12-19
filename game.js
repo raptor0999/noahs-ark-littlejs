@@ -8,10 +8,13 @@
 
 // show the LittleJS splash screen
 //setShowSplashScreen(true);
+setShowWatermark(false);
 
 let gameStarted, spriteAtlas, setupPhase, setupPhaseTimer, waveNumber, waveStarted, waveTimer, waveFinished, enemySpawnTimer, friendlySpawnTimer, noah, ark, friendlies, enemies, spawners;
 let grassTiles, treeTiles, grassLayer, treeLayer;
+let noahAttacks = 0;
 let totalEnemiesKilled, enemiesKilledInWave;
+let totalBirdSpawns, totalLandSpawns;
 let waterObjects = [];
 let endingObjects = [];
 let setupTimeDefault = 20.0;
@@ -39,9 +42,39 @@ let upgrade2 = '';
 const enemyHealthModifierByWave = [0,0,0,0,1,1,1,2,3,4];
 const friendlyModifierByWave = [0,0,1,1,2,2,2,3,3,3];
 
+// medals
+const medal_caster_novice = new Medal(0, 'Caster', 'You are now a novice Caster!');
+const medal_caster_intermediate = new Medal(1, 'Caster', 'You are now an intermediate Caster!');
+const medal_caster_pro = new Medal(2, 'Caster', 'You are a Pro Caster!');
+const medal_flood_boi = new Medal(3, 'Flooded', 'Great job Flood Boi! Rain rain here to stay!');
+const medal_enemy_annihilator = new Medal(4, 'Annihilator', 'You are the Enemy Annihilator!');
+const medal_pacifist = new Medal(5, 'Pacifist', 'Way to go Pacifist! Keep up the peace!');
+const medal_flood_survivor = new Medal(6, 'Survivor', 'You are a winner, you are a Flood Survivor!');
+const medal_friendly_birdist = new Medal(7, 'Bird', 'You are such a Birdist!');
+const medal_friendly_bird_expert = new Medal(8, 'Bird', 'You are now a Bird expert!');
+const medal_friendly_terrestrial = new Medal(9, 'Terrestrial', 'You are now a Terrestrial expert!');
+const medal_friendly_zoologist = new Medal(10, 'Expert', 'You are now a Zoologist!');
+
+medalsInit('Noahs Ark');
+
+// test reset medal section
+medal_caster_novice.unlocked = false;
+medal_caster_intermediate.unlocked = false;
+medal_caster_pro.unlocked = false;
+medal_flood_boi.unlocked = false;
+medal_enemy_annihilator.unlocked = false;
+medal_pacifist.unlocked = false;
+medal_flood_survivor.unlocked = false;
+medal_friendly_birdist.unlocked = false;
+medal_friendly_bird_expert.unlocked = false;
+medal_friendly_terrestrial.unlocked = false;
+medal_friendly_zoologist.unlocked = false;
+
+// sounds
 const snd_button_click = new Sound([1,,397,.02,.06,.07,,3.4,,,,,,,,,.07,.86,.04]); // Pickup 41
 const snd_wave_upgrade = new Sound([0.5,,666,.05,.15,.41,,2.8,,,,,.03,,3,,,.8,.15,,971]); // Powerup 23
 const snd_wave_start = new Sound([0.5,,319,.05,.18,.41,,1.9,-9,,,,.07,,,.2,.13,.6,.17,.22]); // Powerup 2
+const snd_friendly_spawn = new Sound([0.3,,50,.21,.36,.12,,.7,,31,,,,.2,,,.12,.75]); // Random 31
 const snd_enemy_spawn = new Sound([0.3,0,261.6256,.1,.62,.37,2,.2,,,,,.1,,,.1,.13,.32,.1,.45,-1044]); // Music 0
 const snd_enemy_hit = new Sound([0.2,,209,.01,.02,.18,3,3.1,,1,,,,1.1,,.4,.11,.89,.09,,-1556]); // Hit 6
 const snd_enemy_die = new Sound([0.1,,194,.02,.03,.02,3,2.3,-2,30,,,,,,,,.56,.02,.12]); // Blip 5
@@ -49,12 +82,24 @@ const snd_ark_hit = new Sound([0.3,,424,.02,.06,.11,,1.7,-4,,,,,1.6,,.5,.11,.83,
 const snd_ark_destroy = new Sound([0.8,,51,.06,.22,.33,4,3.7,,,,,,1.2,,.5,.35,.3,.23]); // Explosion 4
 const snd_noah_cast = new Sound([0.3,,529,.08,.44,.39,,3.4,-1,,,,.09,,,.1,.09,.99,.12,.03,-1407]); // Powerup 12
 const snd_noah_cast_explosion = new Sound([0.1,,85,.1,.48,.51,4,3.1,4,-1,,,.05,,,.2,,.8,.32,.16]); // Explosion 20
-const snd_spawner_place = new Sound([0.1,,568,.02,.13,.32,,.2,,-1,-68,.05,.09,,1,,,.59,.29]); // Powerup 17
+const snd_spawner_place = new Sound([.5,,43,,.15,.03,4,.4,1,,,,,.2,,.2,,0,.36,,-970]); // Random 33
 
+// music section
 let audio = document.createElement("audio");
 audio.loop = true;
 audio.volume = 1.0;
-let msc_title_src, msc_setup_src, msc_wave1_src;
+let msc_title_src, msc_setup_src, msc_wave1_src, msc_end_src;
+
+let snd = document.createElement("audio");
+snd.loop = false;
+snd.volume = 1.0;
+let snd2 = document.createElement("audio");
+snd2.loop = false;
+snd2.volume = 1.0;
+let snd3 = document.createElement("audio");
+snd3.loop = false;
+snd3.volume = 1.0;
+let snd_wave_start_src, snd_ark_hit_src, snd_enemy_die_src;
 
 // Initialize music generation (player).
 var t0 = new Date();
@@ -124,6 +169,121 @@ setInterval(function () {
     }
 });
 
+var end_player = new CPlayer();
+end_player.init(end_song);
+
+// Generate music...
+var end_done = false;
+setInterval(function () {
+    if (end_done) {
+      return;
+    }
+
+    end_done = end_player.generate() >= 1;
+
+    if (end_done) {
+      var t1 = new Date();
+      console.log("msc end generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = end_player.createWave();
+      msc_end_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+var wave_start_player = new CPlayer();
+wave_start_player.init(wave_start);
+
+// Generate music...
+var wave_start_done = false;
+setInterval(function () {
+    if (wave_start_done) {
+      return;
+    }
+
+    wave_start_done = wave_start_player.generate() >= 1;
+
+    if (wave_start_done) {
+      var t1 = new Date();
+      console.log("msc wave_start generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = wave_start_player.createWave();
+      snd_wave_start_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+var ark_hit_player = new CPlayer();
+ark_hit_player.init(ark_hit);
+
+// Generate music...
+var ark_hit_done = false;
+setInterval(function () {
+    if (ark_hit_done) {
+      return;
+    }
+
+    ark_hit_done = ark_hit_player.generate() >= 1;
+
+    if (ark_hit_done) {
+      var t1 = new Date();
+      console.log("msc ark_hit generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = ark_hit_player.createWave();
+      snd_ark_hit_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+var enemy_die_player = new CPlayer();
+enemy_die_player.init(enemy_die);
+
+// Generate music...
+var enemy_die_done = false;
+setInterval(function () {
+    if (enemy_die_done) {
+      return;
+    }
+
+    enemy_die_done = enemy_die_player.generate() >= 1;
+
+    if (enemy_die_done) {
+      var t1 = new Date();
+      console.log("msc enemy_die generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = enemy_die_player.createWave();
+      snd_enemy_die_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+function play_sound(type) {
+    snd.currentTime = 0.0;
+
+    if(type == "wave_start") {
+        snd.volume = 0.3;
+        snd.src = snd_wave_start_src;
+
+        snd.play();
+    }
+
+    if(type == "ark_hit") {
+        snd2.volume = 0.3;
+        snd2.src = snd_ark_hit_src;
+
+        snd2.play();
+    }
+
+    if(type == "enemy_die") {
+        snd3.volume = 0.3;
+        snd3.src = snd_enemy_die_src;
+
+        snd3.play();
+    }
+
+    
+}
+
 function play_music(type) {
     audio.pause();
     audio.currentTime = 0.0;
@@ -144,6 +304,12 @@ function play_music(type) {
         console.log("wave music");
         audio.volume = 1.0;
         audio.src =  msc_wave1_src;
+    }
+
+    if(type == "end") {
+        console.log("ending music");
+        audio.volume = 1.0;
+        audio.src =  msc_end_src;
     }
 
     audio.play();
@@ -189,6 +355,7 @@ class Noah extends EngineObject {
         this.castAnimationOffset = 0;
         this.castAnimationFrames = 6;
         this.isCasting = false;
+        this.totalCasts = 0;
         this.castPoint = 0;
         this.castDone = true;
         this.castDamage = 2.0;
@@ -254,6 +421,8 @@ class Noah extends EngineObject {
             // attack enemy
             o.takeDamage(this.damage);
             this.attackTimer = new Timer(this.attackTimerDefault);
+
+            noahAttacks += 1;
         }
 
         /*if(o instanceof Ark) {
@@ -387,7 +556,8 @@ class Ark extends EngineObject {
             ark = 0;
             this.destroy();
         } else {
-            snd_ark_hit.play();
+            //snd_ark_hit.play();
+            play_sound("ark_hit");
         }
     }
 
@@ -601,13 +771,18 @@ class EnemyAnimal extends Animal {
         this.health -= dmg;
 
         if(this.health < 1) {
-            snd_enemy_die.play();
+            //snd_enemy_die.play();
+            play_sound("enemy_die");
 
             removeEnemy(this);
             this.destroy();
 
             enemiesKilledInWave += 1;
             totalEnemiesKilled += 1;
+
+            if(totalEnemiesKilled == 100) {
+                medal_enemy_annihilator.unlock();
+            }
         } else {
             snd_enemy_hit.play();
         }
@@ -660,6 +835,8 @@ class FriendlyAnimal extends Animal {
         this.target = 0;
         this.color = rgb(1, 1, 1, 1);
 
+        snd_friendly_spawn.play();
+
         friendlySpawnTimer = new Timer(friendlySpawnTimeDefault);
     }
 
@@ -690,6 +867,16 @@ class Wolf extends FriendlyAnimal {
         super(pos, getRandomAnimal());
 
         this.health = 2;
+
+        totalLandSpawns += 1;
+
+        if(totalLandSpawns == 50) {
+            medal_friendly_terrestrial.unlock();
+        }
+
+        if(totalLandSpawns == 100 && totalBirdSpawns == 100) {
+            medal_friendly_zoologist.unlock();
+        }
     }
 
     update() {
@@ -774,6 +961,20 @@ class Cardinal extends FriendlyAnimal {
         this.size = vec2(0.7, 0.7);
         this.drawSize = vec2(0.7, 0.7);
         this.drawOffset = vec2(0, 0.5);
+
+        totalBirdSpawns += 1;
+
+        if(totalBirdSpawns == 50) {
+            medal_friendly_birdist.unlock();
+        }
+
+        if(totalBirdSpawns == 100) {
+            medal_friendly_bird_expert.unlock();
+        }
+
+        if(totalLandSpawns == 100 && totalBirdSpawns == 100) {
+            medal_friendly_zoologist.unlock();
+        }
     }
 
     update() {
@@ -1031,8 +1232,6 @@ function gameInit()
     enemies = [];
     spawners = [];
 
-    
-    
     cameraPos = levelSize.scale(.5);
 }
 
@@ -1105,6 +1304,20 @@ function gameUpdate()
 
             if(noah.isCasting && noah.currentFrame == 5 && !noah.castDone) {
                 snd_noah_cast_explosion.play();
+                noah.totalCasts += 1;
+
+                if(noah.totalCasts == 1) {
+                    medal_caster_novice.unlock();
+                }
+
+                if(noah.totalCasts == 5) {
+                    medal_caster_intermediate.unlock();
+                }
+
+                if(noah.totalCasts == 20) {
+                    medal_caster_pro.unlock();
+                }
+
                 new ParticleEmitter(noah.castPoint, 0, 0.2, 0.6, 250, 3.14, tile(0, 16), new Color(1, 1, 0, 1), new Color(1, 0.502, 0.251, 1), new Color(1, 0, 0, 0.1), new Color(0.502, 0.251, 0.251, 0.1), 0.8, 0.1, 0.5, 0.15, 0.1, 1, 1, 0.1, 2.6, 0.05, 0.51, 0, 1, 1);
 
                 // find enemies in cast radius and make them take damage
@@ -1272,6 +1485,11 @@ function startLevel() {
 
     if (waveNumber > 1) {
         waterAmount += 50;
+
+        if(waterAmount == 400) {
+            medal_flood_boi.unlock();
+        }
+
         spawnWaterObjects(waterAmount);
     }
 
@@ -1298,6 +1516,8 @@ function startLevel() {
 }
 
 function startEnding() {
+    medal_flood_survivor.unlock();
+    play_music("end");
     resetAnimals();
     stopRain();
 
@@ -1384,7 +1604,8 @@ function startWave() {
     waveTimer = new Timer(waveTimeDefault);
     enemySpawnTimer = new Timer(3);
     friendlySpawnTimer = new Timer(0);
-    snd_wave_start.play();
+    //snd_wave_start.play();
+    play_sound("wave_start");
 
     play_music("wave1");
     startRain(rainRate);
@@ -1540,6 +1761,9 @@ function gameRenderPost()
     } else {
         if (ending) {
             if(ark.endingWindowTimer.elapsed()) {
+                if(noahAttacks == 0) {
+                    medal_pacifist.unlock();
+                }
                 // win state!
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(15,8), rgb(0.9,0.9,0.9,0.6));
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(14,7), rgb(0.1,0.1,0.1,0.6));
@@ -1549,6 +1773,13 @@ function gameRenderPost()
             }
         } else {
             if (!gameStarted) {
+                drawTile(cameraPos.add(vec2(-13,4)), vec2(13,13), spriteAtlas.player);
+                drawTile(cameraPos.add(vec2(11,-4.5)), vec2(18,12), spriteAtlas.ark);
+
+                drawRect(cameraPos.add(vec2(0,5)), vec2(12,3), rgb(0.9,0.9,0.9,1));
+                drawRect(cameraPos.add(vec2(0,5)), vec2(11,2), rgb(0.1,0.1,0.1,1));
+                drawTextScreen('Click anywhere to play Title Music', mainCanvasSize.scale(.5).add(vec2(0,-160)), 20);
+
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(21,7), rgb(0.9,0.9,0.9,1));
                 drawRect(cameraPos.add(vec2(0,-0.5)), vec2(20,6), rgb(0.1,0.1,0.1,1));
                 drawTextScreen('Noah\'s Ark', mainCanvasSize.scale(.5), 80);
@@ -1611,8 +1842,9 @@ function gameRenderPost()
                     drawRect(vec2(cameraPos.x,cameraPos.y-1.8), vec2(8,1), rgb(0,0.9,0,1));
                     drawTextScreen('Click to Play Again!', mainCanvasSize.scale(.5).add(vec2(0,60)), 20);
                 } else {
-                    drawRect(vec2(cameraPos.x, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
-                    drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2, 40), 30);
+                    drawRect(vec2(cameraPos.x-8, 22), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
+                    drawTextScreen('Ark Health: ' + ark.health, vec2(mainCanvasSize.x/2-260, 40), 30);
+
                     if(waveTimer) {
                         drawRect(vec2(cameraPos.x, 2), vec2(10,2), rgb(0.1,0.1,0.1,0.4));
                         drawTextScreen('Time Remaining: ' + formatTime(abs(waveTimer.get())), vec2(mainCanvasSize.x/2, mainCanvasSize.y-40), 30);

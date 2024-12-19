@@ -16,6 +16,11 @@ const sourceFiles =
     'title_song.js',
     'setup_song.js',
     'wave_song_1.js',
+    'end_song.js',
+    'wave_start.js',
+    'ark_hit.js',
+    'enemy_die.js',
+    //'newgrounds.js',
     'game.js',
     // add your game's files here
 ];

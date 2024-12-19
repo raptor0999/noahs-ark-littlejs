@@ -4810,8 +4810,8 @@ class Medal
         // draw containing rect and clip to that region
         context.save();
         context.beginPath();
-        context.fillStyle = new Color(.9,.9,.9).toString();
-        context.strokeStyle = new Color(0,0,0).toString();
+        context.fillStyle = new Color(.9,.9,.9,.5).toString();
+        context.strokeStyle = new Color(0,0,0,.5).toString();
         context.lineWidth = 3;
         context.rect(x, y, width, medalDisplaySize.y);
         context.fill();
