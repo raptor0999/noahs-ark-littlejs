@@ -88,7 +88,7 @@ const snd_spawner_place = new Sound([.5,,43,,.15,.03,4,.4,1,,,,,.2,,.2,,0,.36,,-
 let audio = document.createElement("audio");
 audio.loop = true;
 audio.volume = 1.0;
-let msc_title_src, msc_setup_src, msc_wave1_src, msc_end_src;
+let msc_title_src, msc_setup_src, msc_wave1_src, msc_end_src, msc_rainbow_src;
 
 let snd = document.createElement("audio");
 snd.loop = false;
@@ -188,6 +188,28 @@ setInterval(function () {
       // Put the generated song in an Audio element.
       var wave = end_player.createWave();
       msc_end_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
+    }
+});
+
+var rainbow_player = new CPlayer();
+rainbow_player.init(rainbow_song);
+
+// Generate music...
+var rainbow_done = false;
+setInterval(function () {
+    if (rainbow_done) {
+      return;
+    }
+
+    rainbow_done = rainbow_player.generate() >= 1;
+
+    if (rainbow_done) {
+      var t1 = new Date();
+      console.log("msc rainbow generate done (" + (t1 - t0) + "ms)");
+
+      // Put the generated song in an Audio element.
+      var wave = rainbow_player.createWave();
+      msc_rainbow_src = URL.createObjectURL(new Blob([wave], {type: "audio/wav"}));
     }
 });
 
@@ -310,6 +332,12 @@ function play_music(type) {
         console.log("ending music");
         audio.volume = 1.0;
         audio.src =  msc_end_src;
+    }
+
+    if(type == "rainbow") {
+        console.log("rainbow music");
+        audio.volume = 1.0;
+        audio.src =  msc_rainbow_src;
     }
 
     audio.play();
@@ -1517,7 +1545,7 @@ function startLevel() {
 
 function startEnding() {
     medal_flood_survivor.unlock();
-    play_music("end");
+    play_music("rainbow");
     resetAnimals();
     stopRain();
 
